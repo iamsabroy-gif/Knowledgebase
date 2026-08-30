@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Note, TreeNode, Attachment } from '../types';
 import {
   Folder, FolderOpen, FileText, ChevronRight, ChevronDown, Plus, Search,
-  Tag, Paperclip, MoreVertical, Trash2, Edit2, Copy, RefreshCw, Layers
+  Tag, Paperclip, MoreVertical, Trash2, Edit2, Copy, RefreshCw, Layers, X
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -17,6 +17,8 @@ interface SidebarProps {
   onSelectAttachment?: (path: string) => void;
   onUploadAttachment?: (file: File) => Promise<void>;
   onDeleteAttachment?: (path: string) => Promise<void>;
+  /** Present only when rendered inside the mobile slide-over drawer. */
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -31,6 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectAttachment,
   onUploadAttachment,
   onDeleteAttachment,
+  onCloseMobile,
 }) => {
   const [activeTab, setActiveTab] = useState<'files' | 'search' | 'tags' | 'attachments'>('files');
   const [searchQuery, setSearchQuery] = useState('');
@@ -184,10 +187,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 e.stopPropagation();
                 onCreateNewNote(node.path);
               }}
-              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-opacity"
+              className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 -m-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-opacity"
               title="New note in this folder"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -259,10 +262,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               e.stopPropagation();
               setContextMenuPath(contextMenuPath === node.path ? null : node.path);
             }}
-            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white"
+            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 -m-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white"
             title="Note options"
           >
-            <MoreVertical className="w-3 h-3" />
+            <MoreVertical className="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -298,7 +301,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-72 h-full border-r border-zinc-800/80 bg-zinc-950 flex flex-col shrink-0 select-none text-zinc-300">
+    <aside className="w-72 max-w-[85vw] h-full border-r border-zinc-800/80 bg-zinc-950 flex flex-col shrink-0 select-none text-zinc-300">
       {/* Top Header & New Note/Folder controls */}
       <div className="h-12 border-b border-zinc-800/80 px-3 flex items-center justify-between shrink-0 bg-zinc-900/60">
         <div className="flex items-center gap-2">
@@ -313,7 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             id="btn-new-note"
             onClick={() => onCreateNewNote()}
-            className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
+            className="p-2 md:p-1.5 rounded-md hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
             title="Create New Note"
           >
             <Plus className="w-4 h-4" />
@@ -322,11 +325,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             id="btn-new-folder"
             onClick={() => onCreateNewFolder()}
-            className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
+            className="p-2 md:p-1.5 rounded-md hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
             title="Create New Folder"
           >
             <Folder className="w-4 h-4" />
           </button>
+          {onCloseMobile && (
+            <button
+              type="button"
+              id="btn-close-sidebar-drawer"
+              onClick={onCloseMobile}
+              className="p-2 rounded-md hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors md:hidden"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -336,7 +350,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           type="button"
           id="tab-files"
           onClick={() => setActiveTab('files')}
-          className={`py-1 rounded text-center font-medium transition-colors ${
+          className={`py-2 rounded text-center font-medium transition-colors ${
             activeTab === 'files' ? 'bg-zinc-800 text-violet-300 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >
@@ -346,7 +360,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           type="button"
           id="tab-search"
           onClick={() => setActiveTab('search')}
-          className={`py-1 rounded text-center font-medium transition-colors ${
+          className={`py-2 rounded text-center font-medium transition-colors ${
             activeTab === 'search' ? 'bg-zinc-800 text-violet-300 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >
@@ -356,7 +370,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           type="button"
           id="tab-tags"
           onClick={() => setActiveTab('tags')}
-          className={`py-1 rounded text-center font-medium transition-colors ${
+          className={`py-2 rounded text-center font-medium transition-colors ${
             activeTab === 'tags' ? 'bg-zinc-800 text-violet-300 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >
@@ -366,7 +380,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           type="button"
           id="tab-attachments"
           onClick={() => setActiveTab('attachments')}
-          className={`py-1 rounded text-center font-medium transition-colors ${
+          className={`py-2 rounded text-center font-medium transition-colors ${
             activeTab === 'attachments' ? 'bg-zinc-800 text-violet-300 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >

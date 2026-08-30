@@ -4,7 +4,7 @@ import { computeLinkGraph, findUnlinkedMentions, extractWikilinks } from '../uti
 import { GraphView } from './GraphView';
 import {
   Link2, ArrowUpRight, ArrowDownLeft, FileText, Search,
-  Plus, Check, ChevronDown, ChevronRight, Hash, Compass, Network
+  Plus, Check, ChevronDown, ChevronRight, Hash, Compass, Network, X
 } from 'lucide-react';
 
 interface BacklinksPanelProps {
@@ -14,6 +14,8 @@ interface BacklinksPanelProps {
   onRequestCreateNote: (title: string) => void;
   onConvertUnlinkedMention?: (sourcePath: string, matchedText: string, noteTitle: string) => void;
   onOpenGlobalGraph?: () => void;
+  /** Present only when rendered inside the mobile/tablet slide-over drawer. */
+  onCloseMobile?: () => void;
 }
 
 export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({
@@ -23,6 +25,7 @@ export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({
   onRequestCreateNote,
   onConvertUnlinkedMention,
   onOpenGlobalGraph,
+  onCloseMobile,
 }) => {
   const [activeTab, setActiveTab] = useState<'backlinks' | 'outgoing' | 'graph' | 'outline'>('backlinks');
   const [filterQuery, setFilterQuery] = useState('');
@@ -63,15 +66,15 @@ export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({
   );
 
   return (
-    <aside className="w-80 h-full border-l border-zinc-800/80 bg-zinc-950 flex flex-col shrink-0 select-none text-zinc-300">
+    <aside className="w-80 max-w-[88vw] h-full border-l border-zinc-800/80 bg-zinc-950 flex flex-col shrink-0 select-none text-zinc-300">
       {/* Tab Navigation */}
-      <div className="h-12 border-b border-zinc-800/80 px-2 flex items-center justify-between shrink-0 bg-zinc-900/60">
-        <div className="flex items-center gap-1 w-full">
+      <div className="h-12 border-b border-zinc-800/80 pl-2 pr-1 flex items-center justify-between shrink-0 bg-zinc-900/60">
+        <div className="flex items-center gap-1 flex-1 min-w-0">
           <button
             type="button"
             id="tab-backlinks"
             onClick={() => setActiveTab('backlinks')}
-            className={`flex-1 py-1.5 px-2 rounded text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
+            className={`flex-1 py-2 px-2 rounded text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
               activeTab === 'backlinks'
                 ? 'bg-zinc-800 text-violet-300 border border-violet-800/40 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
@@ -90,7 +93,7 @@ export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({
             type="button"
             id="tab-outgoing"
             onClick={() => setActiveTab('outgoing')}
-            className={`flex-1 py-1.5 px-2 rounded text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
+            className={`flex-1 py-2 px-2 rounded text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
               activeTab === 'outgoing'
                 ? 'bg-zinc-800 text-cyan-300 border border-cyan-800/40 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
@@ -109,7 +112,7 @@ export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({
             type="button"
             id="tab-graph"
             onClick={() => setActiveTab('graph')}
-            className={`flex-1 py-1.5 px-2 rounded text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
+            className={`flex-1 py-2 px-2 rounded text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
               activeTab === 'graph'
                 ? 'bg-zinc-800 text-purple-300 border border-purple-800/40 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
@@ -124,7 +127,7 @@ export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({
             type="button"
             id="tab-outline"
             onClick={() => setActiveTab('outline')}
-            className={`py-1.5 px-2.5 rounded text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
+            className={`py-2 px-2.5 rounded text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
               activeTab === 'outline'
                 ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
@@ -134,6 +137,18 @@ export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({
             <Hash className="w-3.5 h-3.5" />
           </button>
         </div>
+
+        {onCloseMobile && (
+          <button
+            type="button"
+            id="btn-close-backlinks-drawer"
+            onClick={onCloseMobile}
+            className="ml-2 p-2 rounded-md hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors lg:hidden shrink-0"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Filter bar for links */}

@@ -391,10 +391,11 @@ export const GraphView: React.FC<GraphViewProps> = ({
         compact ? 'rounded-none' : 'rounded-lg'
       }`}
     >
-      {/* Top Header Controls Bar */}
-      <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-2 pointer-events-none">
+      {/* Top Header Controls Bar — stacks vertically on narrow screens instead of
+          overflowing horizontally; each cluster wraps independently. */}
+      <div className="absolute top-3 left-3 right-3 z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pointer-events-none">
         {/* Left: Mode Switcher & Stats */}
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
           {/* Local vs Global Toggle */}
           <div className="flex items-center p-0.5 rounded-lg bg-zinc-900/90 border border-zinc-800 backdrop-blur-md shadow-lg">
             <button
@@ -453,7 +454,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
         </div>
 
         {/* Right: Search, Filter & View Buttons */}
-        <div className="flex items-center gap-1.5 pointer-events-auto">
+        <div className="flex flex-wrap items-center justify-end gap-1.5 pointer-events-auto">
           {/* Quick Search */}
           {!compact && (
             <div className="relative">
@@ -463,7 +464,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
                 placeholder="Filter graph notes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-36 md:w-48 pl-8 pr-2 py-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-violet-600 backdrop-blur-md"
+                className="w-28 sm:w-36 md:w-48 pl-8 pr-2 py-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-violet-600 backdrop-blur-md"
               />
             </div>
           )}
@@ -490,7 +491,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           <button
             type="button"
             onClick={() => setShowLabels(prev => !prev)}
-            className={`p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
+            className={`p-2 sm:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
               showLabels
                 ? 'bg-zinc-800/90 border-zinc-700 text-violet-300'
                 : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-zinc-200'
@@ -504,7 +505,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           <button
             type="button"
             onClick={() => setIncludeUnresolved(prev => !prev)}
-            className={`p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
+            className={`p-2 sm:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
               includeUnresolved
                 ? 'bg-zinc-800/90 border-zinc-700 text-amber-300'
                 : 'bg-zinc-900/90 border-zinc-800 text-zinc-500 hover:text-zinc-300'
@@ -519,7 +520,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
             type="button"
             id="btn-graph-physics-controls"
             onClick={() => setIsControlsOpen(prev => !prev)}
-            className={`p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
+            className={`p-2 sm:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
               isControlsOpen
                 ? 'bg-violet-950/80 border-violet-700 text-violet-300'
                 : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-zinc-200'
@@ -533,7 +534,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           <button
             type="button"
             onClick={() => setIsLegendOpen(prev => !prev)}
-            className={`p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
+            className={`p-2 sm:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
               isLegendOpen
                 ? 'bg-violet-950/80 border-violet-700 text-violet-300'
                 : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-zinc-200'
@@ -545,10 +546,11 @@ export const GraphView: React.FC<GraphViewProps> = ({
         </div>
       </div>
 
-      {/* D3 SVG Canvas */}
+      {/* D3 SVG Canvas. touch-none hands all touch gestures here to d3-zoom's own
+          pan/pinch handling instead of letting the browser try to scroll the page. */}
       <svg
         ref={svgRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing focus:outline-none"
+        className="w-full h-full touch-none cursor-grab active:cursor-grabbing focus:outline-none"
         tabIndex={0}
       />
 

@@ -5,7 +5,7 @@ import { FrontmatterInspector } from './FrontmatterInspector';
 import { api } from '../api/client';
 import {
   Bold, Italic, Link as LinkIcon, Image as ImageIcon, CheckSquare,
-  List, Hash, Code, Table, Paperclip, Save, Eye, Edit3, Columns, Upload, FileText
+  List, Hash, Code, Table, Paperclip, Save, Eye, Edit3, Columns, Upload, FileText, PanelRightOpen
 } from 'lucide-react';
 
 interface EditorViewProps {
@@ -17,6 +17,8 @@ interface EditorViewProps {
   onNavigateToNote: (path: string, heading?: string) => void;
   onRequestCreateNote: (title: string) => void;
   onAttachmentUploaded?: () => void;
+  /** Opens the backlinks/graph/outline panel, which collapses into a drawer below `lg`. */
+  onOpenBacklinks?: () => void;
 }
 
 export const EditorView: React.FC<EditorViewProps> = ({
@@ -28,6 +30,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
   onNavigateToNote,
   onRequestCreateNote,
   onAttachmentUploaded,
+  onOpenBacklinks,
 }) => {
   const [body, setBody] = useState(note.body);
   const [title, setTitle] = useState(note.title);
@@ -279,9 +282,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full bg-[#18181b] overflow-hidden">
       {/* Top Note Sub-Header & Controls */}
-      <div className="h-12 border-b border-zinc-800/80 bg-zinc-900/60 px-4 flex items-center justify-between shrink-0 select-none">
+      <div className="h-12 border-b border-zinc-800/80 bg-zinc-900/60 px-3 sm:px-4 flex items-center justify-between shrink-0 select-none">
         {/* Title / Path info */}
-        <div className="flex items-center gap-2 overflow-hidden max-w-[50%]">
+        <div className="flex items-center gap-2 overflow-hidden max-w-[42%] sm:max-w-[50%]">
           <FileText className="w-4 h-4 text-violet-400 shrink-0" />
           <span className="text-sm font-semibold text-zinc-200 truncate" title={note.path}>
             {title || note.title}
@@ -292,24 +295,25 @@ export const EditorView: React.FC<EditorViewProps> = ({
         </div>
 
         {/* Action Controls & Mode Selector */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Save status badge */}
           <div className="flex items-center gap-1.5 text-xs">
             {saveIndicator === 'saving' && (
               <span className="text-amber-400 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                Saving...
+                <span className="hidden sm:inline">Saving...</span>
               </span>
             )}
             {saveIndicator === 'saved' && (
               <span className="text-zinc-500 flex items-center gap-1 font-mono text-[11px]">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Saved
+                <span className="hidden sm:inline">Saved</span>
               </span>
             )}
             {saveIndicator === 'dirty' && (
-              <span className="text-amber-300 font-mono text-[11px]">
-                Unsaved changes
+              <span className="text-amber-300 font-mono text-[11px] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 sm:hidden" />
+                <span className="hidden sm:inline">Unsaved changes</span>
               </span>
             )}
           </div>
@@ -348,27 +352,40 @@ export const EditorView: React.FC<EditorViewProps> = ({
               type="button"
               id="btn-mode-split"
               onClick={() => onChangeViewMode('split')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+              className={`hidden md:flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                 viewMode === 'split'
                   ? 'bg-zinc-800 text-zinc-100 shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
-              title="Split side-by-side mode"
+              title="Split side-by-side mode (desktop only)"
             >
               <Columns className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Split</span>
             </button>
           </div>
+
+          {/* Backlinks/Graph/Outline drawer trigger — panel is inline at lg+ */}
+          {onOpenBacklinks && (
+            <button
+              type="button"
+              id="btn-open-backlinks-drawer"
+              onClick={onOpenBacklinks}
+              className="lg:hidden p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+              title="Backlinks, graph & outline"
+            >
+              <PanelRightOpen className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Formatting Toolbar (Visible in Edit and Split modes) */}
       {(viewMode === 'edit' || viewMode === 'split') && (
-        <div className="h-10 border-b border-zinc-800/80 bg-zinc-950/70 px-3 flex items-center gap-1 shrink-0 overflow-x-auto text-zinc-400 select-none">
+        <div className="h-12 sm:h-10 border-b border-zinc-800/80 bg-zinc-950/70 px-3 flex items-center gap-1 shrink-0 overflow-x-auto scroll-touch no-scrollbar text-zinc-400 select-none">
           <button
             type="button"
             onClick={() => insertFormatting('**', '**', 'bold text')}
-            className="p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200"
+            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Bold (**text**)"
           >
             <Bold className="w-3.5 h-3.5" />
@@ -376,7 +393,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('*', '*', 'italic text')}
-            className="p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200"
+            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Italic (*text*)"
           >
             <Italic className="w-3.5 h-3.5" />
@@ -385,7 +402,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('[[', ']]', 'Note Title')}
-            className="flex items-center gap-1 px-2 py-1 rounded text-xs text-violet-400 hover:bg-violet-950/50 hover:text-violet-300 font-medium"
+            className="flex items-center gap-1 px-2.5 py-2.5 sm:py-1 rounded text-xs shrink-0 text-violet-400 hover:bg-violet-950/50 hover:text-violet-300 font-medium"
             title="Insert [[Wikilink]]"
           >
             <span>[[</span>
@@ -395,7 +412,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('![[', ']]', 'attachment.png')}
-            className="flex items-center gap-1 px-2 py-1 rounded text-xs text-cyan-400 hover:bg-cyan-950/50 hover:text-cyan-300 font-medium"
+            className="flex items-center gap-1 px-2.5 py-2.5 sm:py-1 rounded text-xs shrink-0 text-cyan-400 hover:bg-cyan-950/50 hover:text-cyan-300 font-medium"
             title="Insert ![[Embed]]"
           >
             <span>![[</span>
@@ -406,7 +423,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('## ', '', 'Heading')}
-            className="p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200"
+            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Heading (## )"
           >
             <Hash className="w-3.5 h-3.5" />
@@ -414,7 +431,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('- [ ] ', '', 'Task item')}
-            className="p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200"
+            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Task Checkbox (- [ ])"
           >
             <CheckSquare className="w-3.5 h-3.5" />
@@ -422,7 +439,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('- ', '', 'List item')}
-            className="p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200"
+            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Bullet List (- )"
           >
             <List className="w-3.5 h-3.5" />
@@ -430,7 +447,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('```\n', '\n```', 'code block')}
-            className="p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200"
+            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Code Block (```)"
           >
             <Code className="w-3.5 h-3.5" />
@@ -438,7 +455,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('\n| Header 1 | Header 2 |\n| :--- | :--- |\n| Cell 1 | Cell 2 |\n')}
-            className="p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200"
+            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Insert Markdown Table"
           >
             <Table className="w-3.5 h-3.5" />
@@ -446,7 +463,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('> [!NOTE]\n> ', '', 'This is a note callout')}
-            className="px-2 py-1 rounded text-xs text-zinc-300 hover:bg-zinc-800"
+            className="px-2.5 py-2.5 sm:py-1 rounded text-xs shrink-0 text-zinc-300 hover:bg-zinc-800"
             title="Callout Box"
           >
             Callout
@@ -463,7 +480,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1 px-2 py-1 rounded text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+            className="flex items-center gap-1 px-2.5 py-2.5 sm:py-1 rounded text-xs shrink-0 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
             title="Upload Attachment (Image, PDF)"
           >
             <Paperclip className="w-3.5 h-3.5" />
@@ -472,13 +489,14 @@ export const EditorView: React.FC<EditorViewProps> = ({
         </div>
       )}
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative">
+      {/* Main Content Area. Split mode stacks vertically below `md` since two
+          side-by-side columns are unusable on a phone-width viewport. */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* EDIT PANE */}
         {(viewMode === 'edit' || viewMode === 'split') && (
           <div
-            className={`flex-1 flex flex-col h-full bg-[#18181b] relative ${
-              viewMode === 'split' ? 'border-r border-zinc-800' : ''
+            className={`flex-1 flex flex-col bg-[#18181b] relative min-h-0 ${
+              viewMode === 'split' ? 'border-b md:border-b-0 md:border-r border-zinc-800' : ''
             }`}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
@@ -491,13 +509,13 @@ export const EditorView: React.FC<EditorViewProps> = ({
               onKeyDown={handleKeyDown}
               onScroll={handleEditorScroll}
               placeholder="Write your research notes in markdown with [[wikilinks]], ![[embeds]], and YAML frontmatter..."
-              className="flex-1 w-full p-6 bg-transparent text-zinc-200 font-mono text-sm leading-relaxed outline-none resize-none selection:bg-violet-900/60 selection:text-white"
+              className="flex-1 w-full p-4 sm:p-6 bg-transparent text-zinc-200 font-mono text-sm leading-relaxed outline-none resize-none selection:bg-violet-900/60 selection:text-white"
               spellCheck="false"
             />
 
             {/* Wikilink Autocomplete Dropdown */}
             {showAutocomplete && autocompleteSuggestions.length > 0 && (
-              <div className="absolute left-10 top-20 w-80 max-h-64 overflow-y-auto rounded-lg border border-violet-700/60 bg-zinc-900/95 shadow-2xl z-50 p-1.5 backdrop-blur-md">
+              <div className="absolute left-4 sm:left-10 top-16 sm:top-20 w-80 max-w-[90vw] max-h-64 overflow-y-auto rounded-lg border border-violet-700/60 bg-zinc-900/95 shadow-2xl z-50 p-1.5 backdrop-blur-md">
                 <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-violet-400 border-b border-zinc-800/80 mb-1 flex items-center justify-between">
                   <span>Link Note</span>
                   <span className="font-mono text-zinc-500">↑↓ to navigate</span>
@@ -534,7 +552,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
         {(viewMode === 'preview' || viewMode === 'split') && (
           <div
             ref={previewContainerRef}
-            className="flex-1 h-full overflow-y-auto p-6 md:p-8 bg-[#18181b]"
+            data-selectable-content
+            className="flex-1 min-h-0 overflow-y-auto scroll-touch p-4 sm:p-6 md:p-8 bg-[#18181b]"
           >
             <div className="max-w-4xl mx-auto pb-16">
               {/* Frontmatter Inspector */}

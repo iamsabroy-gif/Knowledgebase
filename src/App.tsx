@@ -14,6 +14,7 @@ import { Sidebar } from './components/Sidebar';
 import { EditorView } from './components/EditorView';
 import { BacklinksPanel } from './components/BacklinksPanel';
 import { GraphView } from './components/GraphView';
+import { MobileTabBar, MobileTab } from './components/MobileTabBar';
 import { QuickSwitcherModal } from './components/QuickSwitcherModal';
 import { GitHubSettingsModal } from './components/GitHubSettingsModal';
 import { CommitModal } from './components/CommitModal';
@@ -85,6 +86,10 @@ export default function App() {
     defaultFolder: '',
   });
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+
+  // Mobile responsive layout state
+  const [isSidebarDrawerOpen, setIsSidebarDrawerOpen] = useState(false);
+  const [isBacklinksDrawerOpen, setIsBacklinksDrawerOpen] = useState(false);
 
   // Notes based on active vault
   const isLocalVault = activeVaultId === 'local';
@@ -269,11 +274,16 @@ export default function App() {
         setIsGlobalGraphOpen(false);
         setViewMode(prev => (prev === 'preview' ? 'edit' : 'preview'));
       }
+      // Escape: close whichever mobile drawer is open
+      if (e.key === 'Escape') {
+        if (isSidebarDrawerOpen) setIsSidebarDrawerOpen(false);
+        if (isBacklinksDrawerOpen) setIsBacklinksDrawerOpen(false);
+      }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isLocalVault]);
+  }, [isLocalVault, isSidebarDrawerOpen, isBacklinksDrawerOpen]);
 
   // Handle Google Sign-in
   const handleSignInGoogle = async () => {
@@ -506,6 +516,51 @@ export default function App() {
 
   const activeNote = notes.find(n => n.path === activeNotePath) || null;
 
+  // Derive the highlighted mobile bottom-tab from current UI state rather than
+  // tracking a separate, easily-desynced piece of state.
+  const activeMobileTab: MobileTab = isSidebarDrawerOpen
+    ? 'files'
+    : isChatbotOpen
+    ? 'ask'
+    : isGlobalGraphOpen
+    ? 'graph'
+    : isBacklinksDrawerOpen
+    ? 'links'
+    : 'note';
+
+  const handleMobileTabSelect = (tab: MobileTab) => {
+    switch (tab) {
+      case 'files':
+        setIsSidebarDrawerOpen(true);
+        break;
+      case 'note':
+        setIsSidebarDrawerOpen(false);
+        setIsBacklinksDrawerOpen(false);
+        setIsGlobalGraphOpen(false);
+        setIsChatbotOpen(false);
+        break;
+      case 'links':
+        if (activeNote) {
+          setIsSidebarDrawerOpen(false);
+          setIsGlobalGraphOpen(false);
+          setIsChatbotOpen(false);
+          setIsBacklinksDrawerOpen(true);
+        }
+        break;
+      case 'graph':
+        setIsSidebarDrawerOpen(false);
+        setIsBacklinksDrawerOpen(false);
+        setIsChatbotOpen(false);
+        setIsGlobalGraphOpen(prev => !prev);
+        break;
+      case 'ask':
+        setIsSidebarDrawerOpen(false);
+        setIsBacklinksDrawerOpen(false);
+        setIsChatbotOpen(prev => !prev);
+        break;
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#121214] text-zinc-200 overflow-hidden font-sans select-none">
       {/* Top Header with Google Auth & Vault Manager */}
@@ -534,37 +589,89 @@ export default function App() {
         adminConfig={adminConfig}
       />
 
-      {/* Main 3-Column Obsidian Layout: [Folder Tree] | [Editor/Preview/Graph] | [Backlinks] */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <Sidebar
-          notes={notes}
-          attachments={attachments}
-          activeNotePath={activeNotePath}
-          onSelectNote={(path) => {
-            setActiveNotePath(path);
-          }}
-          onCreateNewNote={(folderPath) =>
-            setCreateNoteModalState({
-              isOpen: true,
-              defaultTitle: '',
-              defaultFolder: folderPath || '',
-            })
-          }
-          onCreateNewFolder={() => setIsCreateFolderOpen(true)}
-          onDeleteNote={handleDeleteNote}
-          onRenameNote={handleRenameNote}
-          onUploadAttachment={async (file) => {
-            const reader = new FileReader();
-            reader.onload = async () => {
-              const base64 = (reader.result as string).split(',')[1];
-              await api.uploadAttachment(file.name, base64, file.type);
-              const atts = await api.getAttachments();
-              setAttachments(atts);
-            };
-            reader.readAsDataURL(file);
-          }}
-        />
+      {/* Main 3-Column Obsidian Layout: [Folder Tree] | [Editor/Preview/Graph] | [Backlinks]
+          Below `md` the side panels collapse into slide-over drawers (see MobileTabBar). */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Left Sidebar — inline on tablet/desktop */}
+        <div className="hidden md:flex md:shrink-0 h-full">
+          <Sidebar
+            notes={notes}
+            attachments={attachments}
+            activeNotePath={activeNotePath}
+            onSelectNote={(path) => {
+              setActiveNotePath(path);
+              setIsSidebarDrawerOpen(false);
+            }}
+            onCreateNewNote={(folderPath) =>
+              setCreateNoteModalState({
+                isOpen: true,
+                defaultTitle: '',
+                defaultFolder: folderPath || '',
+              })
+            }
+            onCreateNewFolder={() => setIsCreateFolderOpen(true)}
+            onDeleteNote={handleDeleteNote}
+            onRenameNote={handleRenameNote}
+            onUploadAttachment={async (file) => {
+              const reader = new FileReader();
+              reader.onload = async () => {
+                const base64 = (reader.result as string).split(',')[1];
+                await api.uploadAttachment(file.name, base64, file.type);
+                const atts = await api.getAttachments();
+                setAttachments(atts);
+              };
+              reader.readAsDataURL(file);
+            }}
+          />
+        </div>
+
+        {/* Left Sidebar — mobile slide-over drawer */}
+        <div
+          className={`md:hidden fixed inset-0 z-[45] ${isSidebarDrawerOpen ? '' : 'pointer-events-none'}`}
+        >
+          <div
+            onClick={() => setIsSidebarDrawerOpen(false)}
+            className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ${
+              isSidebarDrawerOpen ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+          <div
+            className={`absolute inset-y-0 left-0 h-full shadow-2xl transform transition-transform duration-200 ${
+              isSidebarDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            <Sidebar
+              notes={notes}
+              attachments={attachments}
+              activeNotePath={activeNotePath}
+              onSelectNote={(path) => {
+                setActiveNotePath(path);
+                setIsSidebarDrawerOpen(false);
+              }}
+              onCreateNewNote={(folderPath) =>
+                setCreateNoteModalState({
+                  isOpen: true,
+                  defaultTitle: '',
+                  defaultFolder: folderPath || '',
+                })
+              }
+              onCreateNewFolder={() => setIsCreateFolderOpen(true)}
+              onDeleteNote={handleDeleteNote}
+              onRenameNote={handleRenameNote}
+              onUploadAttachment={async (file) => {
+                const reader = new FileReader();
+                reader.onload = async () => {
+                  const base64 = (reader.result as string).split(',')[1];
+                  await api.uploadAttachment(file.name, base64, file.type);
+                  const atts = await api.getAttachments();
+                  setAttachments(atts);
+                };
+                reader.readAsDataURL(file);
+              }}
+              onCloseMobile={() => setIsSidebarDrawerOpen(false)}
+            />
+          </div>
+        </div>
 
         {/* Center Main Note Editor / Preview OR Full D3 Graph View */}
         {isLoading ? (
@@ -622,6 +729,7 @@ export default function App() {
               const summary = await api.getSyncSummary();
               setSyncSummary(summary);
             }}
+            onOpenBacklinks={() => setIsBacklinksDrawerOpen(true)}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center bg-[#18181b] text-zinc-400 p-8 text-center">
@@ -657,32 +765,88 @@ export default function App() {
           </div>
         )}
 
-        {/* Right Sidebar: Backlinks & Outgoing Links Panel */}
+        {/* Right Sidebar: Backlinks & Outgoing Links Panel — inline on desktop (lg+) */}
         {activeNote && !isGlobalGraphOpen && (
-          <BacklinksPanel
-            currentNote={activeNote}
-            allNotes={notes}
-            onNavigateToNote={(path, heading) => {
-              setActiveNotePath(path);
-              if (heading) {
-                setTimeout(() => {
-                  const el = document.getElementById(heading.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
-              }
-            }}
-            onRequestCreateNote={(targetTitle) => {
-              setCreateNoteModalState({
-                isOpen: true,
-                defaultTitle: targetTitle,
-                defaultFolder: '',
-              });
-            }}
-            onConvertUnlinkedMention={handleConvertUnlinkedMention}
-            onOpenGlobalGraph={() => setIsGlobalGraphOpen(true)}
-          />
+          <div className="hidden lg:flex lg:shrink-0 h-full">
+            <BacklinksPanel
+              currentNote={activeNote}
+              allNotes={notes}
+              onNavigateToNote={(path, heading) => {
+                setActiveNotePath(path);
+                if (heading) {
+                  setTimeout(() => {
+                    const el = document.getElementById(heading.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }, 100);
+                }
+              }}
+              onRequestCreateNote={(targetTitle) => {
+                setCreateNoteModalState({
+                  isOpen: true,
+                  defaultTitle: targetTitle,
+                  defaultFolder: '',
+                });
+              }}
+              onConvertUnlinkedMention={handleConvertUnlinkedMention}
+              onOpenGlobalGraph={() => setIsGlobalGraphOpen(true)}
+            />
+          </div>
+        )}
+
+        {/* Right Sidebar: Backlinks — mobile/tablet slide-over drawer */}
+        {activeNote && !isGlobalGraphOpen && (
+          <div
+            className={`lg:hidden fixed inset-0 z-[45] ${isBacklinksDrawerOpen ? '' : 'pointer-events-none'}`}
+          >
+            <div
+              onClick={() => setIsBacklinksDrawerOpen(false)}
+              className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ${
+                isBacklinksDrawerOpen ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+            <div
+              className={`absolute inset-y-0 right-0 h-full shadow-2xl transform transition-transform duration-200 ${
+                isBacklinksDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+              }`}
+            >
+              <BacklinksPanel
+                currentNote={activeNote}
+                allNotes={notes}
+                onNavigateToNote={(path, heading) => {
+                  setActiveNotePath(path);
+                  setIsBacklinksDrawerOpen(false);
+                  if (heading) {
+                    setTimeout(() => {
+                      const el = document.getElementById(heading.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                  }
+                }}
+                onRequestCreateNote={(targetTitle) => {
+                  setCreateNoteModalState({
+                    isOpen: true,
+                    defaultTitle: targetTitle,
+                    defaultFolder: '',
+                  });
+                }}
+                onConvertUnlinkedMention={handleConvertUnlinkedMention}
+                onOpenGlobalGraph={() => {
+                  setIsBacklinksDrawerOpen(false);
+                  setIsGlobalGraphOpen(true);
+                }}
+                onCloseMobile={() => setIsBacklinksDrawerOpen(false)}
+              />
+            </div>
+          </div>
         )}
       </div>
+
+      {/* Mobile bottom navigation — hidden on tablet/desktop (md+) */}
+      <MobileTabBar
+        activeTab={activeMobileTab}
+        hasActiveNote={!!activeNote}
+        onSelectTab={handleMobileTabSelect}
+      />
 
       {/* Global Modals */}
       <QuickSwitcherModal
@@ -826,13 +990,15 @@ export default function App() {
         onRequestGoogleSignIn={handleSignInGoogle}
       />
 
-      {/* Floating Gemini AI Launcher Button (when closed) */}
+      {/* Floating Gemini AI Launcher Button (when closed). Hidden below `md` — the
+          mobile bottom tab bar's "Ask" tab already reaches the chatbot there, and the
+          launcher would otherwise collide with the tab bar. */}
       {!isChatbotOpen && (
         <button
           type="button"
           id="btn-floating-gemini-launcher"
           onClick={() => setIsChatbotOpen(true)}
-          className={`fixed bottom-5 right-5 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full text-white font-medium text-xs shadow-xl transition-all hover:scale-105 active:scale-95 group ${
+          className={`hidden md:flex fixed bottom-5 right-5 z-40 items-center gap-2 px-3.5 py-2.5 rounded-full text-white font-medium text-xs shadow-xl transition-all hover:scale-105 active:scale-95 group ${
             !adminConfig.gemini_chat_enabled
               ? 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 shadow-zinc-950/80 text-zinc-300'
               : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-violet-950/60 border border-violet-400/30'

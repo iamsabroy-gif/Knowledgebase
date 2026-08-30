@@ -1,1 +1,38 @@
 @import "tailwindcss";
+
+/* Safe-area padding helpers for iOS notches / home indicators (Mobile Layout Optimization) */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Smooth momentum scrolling + contained overscroll for drawers/panels on touch devices */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Hide scrollbar visually while keeping horizontal scroll usable (toolbars, tab strips) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* The app shell disables selection globally for app-chrome polish, but note content
+   (editor textarea + rendered markdown preview) must stay selectable so touch users
+   can long-press to copy text. */
+[data-selectable-content] {
+  -webkit-user-select: text;
+  user-select: text;
+}
