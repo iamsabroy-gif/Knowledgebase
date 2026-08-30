@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Firebase Firestore Blueprint",
+  "description": "Schema for Obsidian Vault & GitHub Sync multi-user Google Auth and Shared Vaults",
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "Stores user registration and authentication profile info",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "created_at": { "type": "string" },
+        "last_login_at": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "vaults": {
+      "title": "Vault",
+      "description": "Stores cloud-synced vaults with collaborative sharing permissions",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "ownerEmail": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "memberUids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "sharedWith": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string" },
+              "email": { "type": "string" },
+              "displayName": { "type": "string" },
+              "role": { "type": "string", "enum": ["owner", "editor", "viewer"] },
+              "addedAt": { "type": "string" }
+            },
+            "required": ["email", "role"]
+          }
+        },
+        "shareCode": { "type": "string" },
+        "allowPublicRead": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "noteCount": { "type": "number" }
+      },
+      "required": ["name", "ownerId", "ownerEmail", "memberUids"]
+    },
+    "vaults/{vaultId}/notes": {
+      "title": "Vault Note",
+      "description": "Markdown notes belonging to a specific vault",
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "frontmatter": { "type": "object" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "git_sha": { "type": "string" },
+        "lastModifiedBy": { "type": "string" }
+      },
+      "required": ["path", "title", "body"]
+    },
+    "system_settings": {
+      "title": "System Settings",
+      "description": "Global application configuration including Gemini AI chatbot admin controls",
+      "type": "object",
+      "properties": {
+        "gemini_chat_enabled": { "type": "boolean" },
+        "allowed_access": { "type": "string", "enum": ["all", "authenticated_only", "admin_only"] },
+        "disabled_message": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "updated_by": { "type": "string" }
+      },
+      "required": ["gemini_chat_enabled"]
+    }
+  }
+}

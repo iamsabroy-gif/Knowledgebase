@@ -1,0 +1,62 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isVaultMember(vaultData) {
+      return isAuthenticated() && (
+        vaultData.ownerId == request.auth.uid ||
+        (vaultData.memberUids != null && request.auth.uid in vaultData.memberUids)
+      );
+    }
+
+    function isVaultOwner(vaultData) {
+      return isAuthenticated() && vaultData.ownerId == request.auth.uid;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isUser(userId);
+    }
+
+    // Vaults collection
+    match /vaults/{vaultId} {
+      allow read: if isAuthenticated() && (
+        isVaultMember(resource.data) ||
+        resource.data.allowPublicRead == true
+      );
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        isVaultOwner(resource.data) ||
+        isVaultMember(resource.data)
+      );
+      allow delete: if isAuthenticated() && isVaultOwner(resource.data);
+
+      // Notes subcollection within a vault
+      match /notes/{noteId} {
+        allow read: if isAuthenticated() && (
+          isVaultMember(get(/databases/$(database)/documents/vaults/$(vaultId)).data) ||
+          get(/databases/$(database)/documents/vaults/$(vaultId)).data.allowPublicRead == true
+        );
+        allow write: if isAuthenticated() &&
+          isVaultMember(get(/databases/$(database)/documents/vaults/$(vaultId)).data);
+      }
+    }
+
+    // System Settings (Gemini Chatbot Enablement, Maintenance Config)
+    match /system_settings/{settingId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+  }
+}

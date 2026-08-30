@@ -1,0 +1,6 @@
+{
+  "name": "KnowledgeBase",
+  "description": "A personal markdown knowledge-base and Obsidian clone with Gemini 3.7 Flash AI research chatbot, bidirectional GitHub sync, wikilinks, interactive D3 link graph, Google Auth, and real-time shared vaults.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
