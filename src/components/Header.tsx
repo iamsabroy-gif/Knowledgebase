@@ -5,7 +5,7 @@ import {
   Github, RefreshCw, UploadCloud, DownloadCloud, AlertTriangle,
   CheckCircle2, Search, Settings, BookOpen, Layers, Plus, Network,
   Users, ChevronDown, LogIn, LogOut, Database, Globe, HardDrive, Share2, Sparkles,
-  Shield, ShieldCheck, Lock
+  Shield, ShieldCheck, Lock, MoreVertical
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -58,17 +58,23 @@ export const Header: React.FC<HeaderProps> = ({
   adminConfig,
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   const isConfigured = syncSummary?.configured;
   const pendingCount = syncSummary?.total_pending_count || 0;
   const conflictCount = syncSummary?.conflicts_count || 0;
+  const mobileMenuNeedsAttention = isLocalVault && (conflictCount > 0 || pendingCount > 0);
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setIsUserMenuOpen(false);
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -86,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-14 border-b border-zinc-800/80 bg-zinc-950 px-4 flex items-center justify-between shrink-0 select-none text-zinc-300 relative z-30">
+    <header className="h-14 border-b border-zinc-800/80 bg-zinc-950 px-2.5 sm:px-4 flex items-center justify-between shrink-0 select-none text-zinc-300 relative z-30">
       {/* Left: Vault Identity & Switcher */}
       <div className="flex items-center gap-3">
         <button
@@ -105,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold text-zinc-100 tracking-tight max-w-[150px] sm:max-w-[200px] truncate">
+              <span className="text-sm font-bold text-zinc-100 tracking-tight max-w-[110px] sm:max-w-[200px] truncate">
                 {isLocalVault ? 'KnowledgeBase' : activeVault?.name || 'Shared Vault'}
               </span>
               <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${
@@ -117,7 +123,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
               <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
             </div>
-            <div className="text-[11px] text-zinc-500 truncate max-w-[180px] sm:max-w-xs">
+            <div className="text-[11px] text-zinc-500 truncate max-w-[110px] sm:max-w-xs">
               {isLocalVault
                 ? (isConfigured ? `${syncSummary?.repo_name} (${syncSummary?.branch})` : 'Local File Store')
                 : `Shared with ${activeVault?.sharedWith?.length || 1} members`}
@@ -145,7 +151,20 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right: Sync Status, Graph View, Share, & Google Auth */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Mobile-only: quick switcher search icon (the search bar above is hidden below md) */}
+        <button
+          type="button"
+          id="btn-mobile-search"
+          onClick={onOpenQuickSwitcher}
+          className="md:hidden p-2.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-colors"
+          title="Search or jump to note (⌘K)"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+
+        {/* Desktop action cluster: Sync status, Share, Graph, Gemini, Admin, Settings */}
+        <div className="hidden md:flex items-center gap-2">
         {/* Sync Status Badge (when in local vault) */}
         {isLocalVault && (
           <>
@@ -301,6 +320,138 @@ export const Header: React.FC<HeaderProps> = ({
             <Settings className="w-4 h-4" />
           </button>
         )}
+        </div>
+
+        {/* Mobile-only overflow menu: collects Sync, Share, Graph, Gemini, Admin, Settings */}
+        <div className="md:hidden relative" ref={mobileMenuRef}>
+          <button
+            type="button"
+            id="btn-mobile-overflow-menu"
+            onClick={() => setIsMobileMenuOpen(prev => !prev)}
+            className="relative p-2.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-colors"
+            title="More actions"
+          >
+            <MoreVertical className="w-4 h-4" />
+            {mobileMenuNeedsAttention && (
+              <span
+                className={`absolute top-1 right-1 w-2 h-2 rounded-full ${
+                  conflictCount > 0 ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'
+                }`}
+              />
+            )}
+          </button>
+
+          {isMobileMenuOpen && (
+            <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl p-2 z-50 text-xs animate-in fade-in-50 zoom-in-95">
+              {isLocalVault && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    if (isSyncing) return;
+                    if (conflictCount > 0) onOpenConflictModal();
+                    else if (pendingCount > 0) onOpenCommitModal();
+                    else if (!isConfigured) onOpenSettings();
+                  }}
+                  className="w-full text-left p-2 rounded-xl hover:bg-zinc-800/80 text-zinc-200 flex items-center gap-2.5 transition-colors"
+                >
+                  {isSyncing ? (
+                    <RefreshCw className="w-4 h-4 text-violet-400 animate-spin" />
+                  ) : conflictCount > 0 ? (
+                    <AlertTriangle className="w-4 h-4 text-rose-400" />
+                  ) : pendingCount > 0 ? (
+                    <UploadCloud className="w-4 h-4 text-amber-400" />
+                  ) : isConfigured ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Github className="w-4 h-4 text-zinc-400" />
+                  )}
+                  <span>
+                    {isSyncing
+                      ? 'Syncing...'
+                      : conflictCount > 0
+                      ? `${conflictCount} Conflict${conflictCount > 1 ? 's' : ''}`
+                      : pendingCount > 0
+                      ? `${pendingCount} pending change${pendingCount > 1 ? 's' : ''}`
+                      : isConfigured
+                      ? 'Synced with GitHub'
+                      : 'Connect GitHub'}
+                  </span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onOpenShareModal();
+                }}
+                className="w-full text-left p-2 rounded-xl hover:bg-zinc-800/80 text-zinc-200 flex items-center gap-2.5 transition-colors"
+              >
+                <Share2 className="w-4 h-4 text-violet-400" />
+                <span>Share Vault</span>
+              </button>
+
+              {onToggleGraphView && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onToggleGraphView();
+                  }}
+                  className="w-full text-left p-2 rounded-xl hover:bg-zinc-800/80 text-zinc-200 flex items-center gap-2.5 transition-colors"
+                >
+                  <Network className="w-4 h-4 text-purple-400" />
+                  <span>{isGraphViewOpen ? 'Close Graph View' : 'Open Graph View'}</span>
+                </button>
+              )}
+
+              {onToggleChatbot && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onToggleChatbot();
+                  }}
+                  className="w-full text-left p-2 rounded-xl hover:bg-zinc-800/80 text-zinc-200 flex items-center gap-2.5 transition-colors"
+                >
+                  <Sparkles className="w-4 h-4 text-violet-400" />
+                  <span>{adminConfig.gemini_chat_enabled ? 'Ask Gemini' : 'Gemini (Disabled)'}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onOpenAdminModal();
+                }}
+                className="w-full text-left p-2 rounded-xl hover:bg-zinc-800/80 text-zinc-200 flex items-center gap-2.5 transition-colors"
+              >
+                {adminAuthState.isAdmin ? (
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                ) : (
+                  <Shield className="w-4 h-4 text-violet-400" />
+                )}
+                <span>{adminAuthState.isAdmin ? 'Admin Control Center' : 'Admin Login'}</span>
+              </button>
+
+              {isLocalVault && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onOpenSettings();
+                  }}
+                  className="w-full text-left p-2 rounded-xl hover:bg-zinc-800/80 text-zinc-200 flex items-center gap-2.5 transition-colors"
+                >
+                  <Settings className="w-4 h-4 text-zinc-400" />
+                  <span>GitHub Sync Settings</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* GOOGLE AUTH PROFILE / LOGIN BUTTON */}
         <div className="relative ml-1" ref={userMenuRef}>
@@ -399,11 +550,11 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               id="btn-google-login"
               onClick={onSignInGoogle}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-zinc-100 text-zinc-900 font-semibold text-xs transition-colors shadow-sm"
+              className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-zinc-100 text-zinc-900 font-semibold text-xs transition-colors shadow-sm shrink-0"
               title="Sign in with Google Account"
             >
               {/* Google G SVG icon */}
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
                   d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -421,7 +572,7 @@ export const Header: React.FC<HeaderProps> = ({
                   d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                 />
               </svg>
-              <span>Sign In</span>
+              <span className="hidden sm:inline">Sign In</span>
             </button>
           )}
         </div>

@@ -202,12 +202,12 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             )}
 
             {/* Action Resolution Bar */}
-            <div className="p-4 bg-zinc-950 border-t border-zinc-800 flex items-center justify-between shrink-0">
-              <div className="text-xs text-zinc-400">
+            <div className="p-4 bg-zinc-950 border-t border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
+              <div className="text-xs text-zinc-400 truncate">
                 Select resolution for <strong className="text-zinc-200">{activeConflict?.path}</strong>:
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   id="btn-keep-local"

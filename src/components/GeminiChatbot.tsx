@@ -252,8 +252,8 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({
       id="gemini-chatbot-container"
       className={`fixed z-50 transition-all duration-200 flex flex-col bg-[#141417] border border-zinc-700/80 rounded-2xl shadow-2xl overflow-hidden font-sans ${
         isExpanded
-          ? 'inset-4 sm:inset-10 md:inset-16'
-          : 'bottom-4 right-4 sm:bottom-6 sm:right-6 w-[92vw] sm:w-[460px] h-[620px] max-h-[85vh]'
+          ? 'inset-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:inset-16'
+          : 'left-4 right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] w-auto h-[70vh] max-h-[85vh] md:left-auto md:right-6 md:bottom-6 md:w-[460px] md:h-[620px]'
       }`}
     >
       {/* Top Titlebar */}
