@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+:root {
+  --tabbar-h: calc(52px + env(safe-area-inset-bottom, 0px));
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* Safe-area padding helpers for iOS notches / home indicators (Mobile Layout Optimization) */
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
@@ -36,3 +46,14 @@
   -webkit-user-select: text;
   user-select: text;
 }
+
+/* Hide affordances by default on devices with fine pointer + hover, show on hover */
+@media (hover: hover) and (pointer: fine) {
+  .hover-affordance {
+    opacity: 0;
+  }
+  .group:hover .hover-affordance {
+    opacity: 1;
+  }
+}
+

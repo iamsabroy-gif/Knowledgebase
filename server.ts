@@ -5,6 +5,7 @@ import { vaultStorage } from './server/storage';
 import { GitHubSyncService } from './server/github';
 import { parseObsidianNote } from './src/utils/markdown-parser';
 import { generateChatResponse, testGeminiConnection } from './server/gemini';
+import { requireAuth, AuthedRequest } from './server/auth';
 
 let serverGeminiEnabled = true;
 let serverGeminiAllowedAccess: 'all' | 'authenticated_only' | 'admin_only' = 'all';
@@ -20,6 +21,17 @@ async function startServer() {
   // Increase payload limit for base64 attachments and large notes
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  // ==========================================
+  // AUTHENTICATION MIDDLEWARE
+  // All /api/* routes require a valid Firebase ID token except the public
+  // gemini-status endpoint (used by the client before sign-in to check
+  // whether AI features are enabled).
+  // ==========================================
+  app.use('/api', (req, res, next) => {
+    if (req.method === 'GET' && req.path === '/admin/gemini-status') return next();
+    return requireAuth(req as AuthedRequest, res, next);
+  });
 
   // ==========================================
   // NOTE API ROUTES

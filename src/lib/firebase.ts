@@ -3,6 +3,10 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  browserLocalPersistence,
+  setPersistence,
   signOut as fbSignOut,
   onAuthStateChanged,
   User as FirebaseUser,
@@ -41,14 +45,15 @@ export const KNOWN_ADMIN_EMAILS = [
   'admin@knowledgebase.internal',
 ];
 
-// Firebase configuration from auto-generated config
+// Firebase configuration — env vars override the committed config so staging/prod
+// can use a different project without modifying firebase-applet-config.json.
 const firebaseConfig = {
-  apiKey: firebaseConfigData.apiKey,
-  authDomain: firebaseConfigData.authDomain,
-  projectId: firebaseConfigData.projectId,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? firebaseConfigData.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? firebaseConfigData.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? firebaseConfigData.projectId,
   storageBucket: firebaseConfigData.storageBucket,
   messagingSenderId: firebaseConfigData.messagingSenderId,
-  appId: firebaseConfigData.appId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID ?? firebaseConfigData.appId,
 };
 
 // Initialize Firebase App singleton
@@ -68,18 +73,65 @@ export const db = firebaseConfigData.firestoreDatabaseId && firebaseConfigData.f
   ? getFirestore(app, firebaseConfigData.firestoreDatabaseId)
   : getFirestore(app);
 
+// Error codes that indicate the popup was blocked or cancelled — fall back to redirect.
+const POPUP_FALLBACK_CODES = new Set([
+  'auth/popup-blocked',
+  'auth/popup-closed-by-user',
+  'auth/cancelled-popup-request',
+  'auth/operation-not-supported-in-this-environment',
+]);
+
 /**
- * Sign in or Register using Google Auth Popup
+ * Sign in with Google. Tries a popup first; if the popup is blocked or
+ * unavailable (e.g. iOS Safari) falls back to a full-page redirect.
+ * Returns the signed-in user on popup success, or null when a redirect
+ * navigation has been initiated (resolution happens in resolveRedirectSignIn).
  */
-export async function signInWithGoogle(): Promise<FirebaseUser> {
+export async function signInWithGoogle(): Promise<FirebaseUser | null> {
+  await setPersistence(auth, browserLocalPersistence);
   try {
     const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    await syncUserProfile(user);
-    return user;
+    await syncUserProfile(result.user);
+    return result.user;
   } catch (error: any) {
-    console.error('Google Sign-In Error:', error);
+    if (POPUP_FALLBACK_CODES.has(error?.code)) {
+      // Navigates away; resolution happens in resolveRedirectSignIn() on return.
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
     throw error;
+  }
+}
+
+/**
+ * Call once on app boot, before rendering signed-out state.
+ * Resolves a pending redirect sign-in if the user was sent to Google and
+ * just returned. No-ops if no redirect result is pending.
+ */
+export async function resolveRedirectSignIn(): Promise<FirebaseUser | null> {
+  const result = await getRedirectResult(auth);
+  if (!result?.user) return null;
+  await syncUserProfile(result.user);
+  return result.user;
+}
+
+/**
+ * Map Firebase auth error codes to human-readable messages.
+ */
+export function describeAuthError(error: any): string {
+  switch (error?.code) {
+    case 'auth/unauthorized-domain':
+      return 'This domain is not authorised in Firebase Authentication settings. Contact the administrator.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the sign-in popup. Retrying with a redirect…';
+    case 'auth/network-request-failed':
+      return 'Network error reaching Google. Check your connection and try again.';
+    case 'auth/internal-error':
+      return 'Sign-in failed. Verify the OAuth client redirect URI configuration.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Contact the administrator.';
+    default:
+      return error?.message || 'Google sign-in failed.';
   }
 }
 

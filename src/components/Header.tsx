@@ -92,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-14 border-b border-zinc-800/80 bg-zinc-950 px-2.5 sm:px-4 flex items-center justify-between shrink-0 select-none text-zinc-300 relative z-30">
+    <header className="min-h-14 pt-safe border-b border-zinc-800/80 bg-zinc-950 px-2.5 sm:px-4 flex items-center justify-between shrink-0 select-none text-zinc-300 relative z-30">
       {/* Left: Vault Identity & Switcher */}
       <div className="flex items-center gap-3">
         <button

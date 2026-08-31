@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { computeLinkGraph } from './utils/wikilink-engine';
 import {
   Note,
   Attachment,
@@ -38,6 +39,8 @@ import {
   DEFAULT_GEMINI_ADMIN_CONFIG,
   isUserAdmin,
   subscribeToGeminiAdminConfig,
+  resolveRedirectSignIn,
+  describeAuthError,
 } from './lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
@@ -46,6 +49,10 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [activeVaultId, setActiveVaultId] = useState<string>('local');
   const [cloudVaults, setCloudVaults] = useState<SharedVaultInfo[]>([]);
+
+  // authResolving is true until we've checked for a pending redirect result
+  // on app boot — prevents a flash of the signed-out state for returning redirects.
+  const [authResolving, setAuthResolving] = useState(true);
 
   // Admin & Gemini System Settings State
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
@@ -95,6 +102,16 @@ export default function App() {
   const isLocalVault = activeVaultId === 'local';
   const notes = isLocalVault ? localNotes : cloudNotes;
   const activeCloudVault = cloudVaults.find(v => v.id === activeVaultId) || null;
+
+  // Hoist linkGraph computation so desktop and mobile panels share the result
+  const linkGraph = useMemo(() => computeLinkGraph(notes), [notes]);
+
+  // 0. Resolve any pending redirect sign-in on app boot (before rendering signed-out state).
+  useEffect(() => {
+    resolveRedirectSignIn()
+      .catch(err => setErrorMessage(describeAuthError(err)))
+      .finally(() => setAuthResolving(false));
+  }, []);
 
   // 1. Listen to Firebase Auth state & Admin Role Detection
   useEffect(() => {
@@ -288,9 +305,10 @@ export default function App() {
   // Handle Google Sign-in
   const handleSignInGoogle = async () => {
     try {
+      setErrorMessage(null);
       await signInWithGoogle();
     } catch (err: any) {
-      alert(`Google Sign-In Error: ${err.message}`);
+      setErrorMessage(describeAuthError(err));
     }
   };
 
@@ -562,7 +580,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#121214] text-zinc-200 overflow-hidden font-sans select-none">
+    <div className="flex flex-col h-[100dvh] w-full pl-safe pr-safe bg-[#121214] text-zinc-200 overflow-hidden overscroll-none font-sans select-none">
       {/* Top Header with Google Auth & Vault Manager */}
       <Header
         syncSummary={syncSummary}
@@ -591,7 +609,7 @@ export default function App() {
 
       {/* Main 3-Column Obsidian Layout: [Folder Tree] | [Editor/Preview/Graph] | [Backlinks]
           Below `md` the side panels collapse into slide-over drawers (see MobileTabBar). */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      <div className="flex-1 flex overflow-hidden min-h-0 pb-[var(--tabbar-h)] md:pb-0">
         {/* Left Sidebar — inline on tablet/desktop */}
         <div className="hidden md:flex md:shrink-0 h-full">
           <Sidebar
@@ -674,7 +692,7 @@ export default function App() {
         </div>
 
         {/* Center Main Note Editor / Preview OR Full D3 Graph View */}
-        {isLoading ? (
+        {authResolving || isLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center bg-[#18181b] text-zinc-400">
             <RefreshCw className="w-8 h-8 animate-spin text-violet-400 mb-3" />
             <span className="text-sm font-medium">Loading Obsidian Knowledge Base...</span>
@@ -771,6 +789,7 @@ export default function App() {
             <BacklinksPanel
               currentNote={activeNote}
               allNotes={notes}
+              linkGraph={linkGraph}
               onNavigateToNote={(path, heading) => {
                 setActiveNotePath(path);
                 if (heading) {
@@ -812,6 +831,7 @@ export default function App() {
               <BacklinksPanel
                 currentNote={activeNote}
                 allNotes={notes}
+                linkGraph={linkGraph}
                 onNavigateToNote={(path, heading) => {
                   setActiveNotePath(path);
                   setIsBacklinksDrawerOpen(false);

@@ -187,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 e.stopPropagation();
                 onCreateNewNote(node.path);
               }}
-              className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 -m-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-opacity"
+              className="hover-affordance p-1.5 -m-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-opacity"
               title="New note in this folder"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -262,7 +262,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               e.stopPropagation();
               setContextMenuPath(contextMenuPath === node.path ? null : node.path);
             }}
-            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 -m-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white"
+            className="hover-affordance p-1.5 -m-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-opacity"
             title="Note options"
           >
             <MoreVertical className="w-3.5 h-3.5" />

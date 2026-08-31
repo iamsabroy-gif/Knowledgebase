@@ -26,7 +26,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ activeTab, hasActive
   return (
     <nav
       id="mobile-tab-bar"
-      className="md:hidden shrink-0 border-t border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md pb-safe select-none z-30"
+      className="md:hidden fixed bottom-0 inset-x-0 border-t border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md pb-safe select-none z-50"
     >
       <div className="grid grid-cols-5">
         {TABS.map(({ id, label, icon: Icon }) => {

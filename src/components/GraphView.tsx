@@ -491,7 +491,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           <button
             type="button"
             onClick={() => setShowLabels(prev => !prev)}
-            className={`p-2 sm:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
+            className={`p-2 md:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
               showLabels
                 ? 'bg-zinc-800/90 border-zinc-700 text-violet-300'
                 : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-zinc-200'
@@ -505,7 +505,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           <button
             type="button"
             onClick={() => setIncludeUnresolved(prev => !prev)}
-            className={`p-2 sm:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
+            className={`p-2 md:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
               includeUnresolved
                 ? 'bg-zinc-800/90 border-zinc-700 text-amber-300'
                 : 'bg-zinc-900/90 border-zinc-800 text-zinc-500 hover:text-zinc-300'
@@ -520,7 +520,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
             type="button"
             id="btn-graph-physics-controls"
             onClick={() => setIsControlsOpen(prev => !prev)}
-            className={`p-2 sm:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
+            className={`p-2 md:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
               isControlsOpen
                 ? 'bg-violet-950/80 border-violet-700 text-violet-300'
                 : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-zinc-200'
@@ -534,7 +534,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           <button
             type="button"
             onClick={() => setIsLegendOpen(prev => !prev)}
-            className={`p-2 sm:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
+            className={`p-2 md:p-1.5 rounded-lg border text-xs transition-colors backdrop-blur-md ${
               isLegendOpen
                 ? 'bg-violet-950/80 border-violet-700 text-violet-300'
                 : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-zinc-200'

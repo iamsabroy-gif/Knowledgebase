@@ -252,8 +252,8 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({
       id="gemini-chatbot-container"
       className={`fixed z-50 transition-all duration-200 flex flex-col bg-[#141417] border border-zinc-700/80 rounded-2xl shadow-2xl overflow-hidden font-sans ${
         isExpanded
-          ? 'inset-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:inset-16'
-          : 'left-4 right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] w-auto h-[70vh] max-h-[85vh] md:left-auto md:right-6 md:bottom-6 md:w-[460px] md:h-[620px]'
+          ? 'inset-4 bottom-[calc(var(--tabbar-h)+0.75rem)] md:inset-16'
+          : 'left-4 right-4 bottom-[calc(var(--tabbar-h)+0.75rem)] w-auto h-[70dvh] max-h-[85dvh] md:left-auto md:right-6 md:bottom-6 md:w-[460px] md:h-[620px]'
       }`}
     >
       {/* Top Titlebar */}
@@ -396,7 +396,7 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({
       </div>
 
       {/* Message List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm bg-[#141417]">
+      <div data-selectable-content className="flex-1 overflow-y-auto p-4 space-y-4 text-sm bg-[#141417]">
         {messages.map(msg => {
           const isUser = msg.role === 'user';
           return (

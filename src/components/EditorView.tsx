@@ -381,11 +381,11 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
       {/* Formatting Toolbar (Visible in Edit and Split modes) */}
       {(viewMode === 'edit' || viewMode === 'split') && (
-        <div className="h-12 sm:h-10 border-b border-zinc-800/80 bg-zinc-950/70 px-3 flex items-center gap-1 shrink-0 overflow-x-auto scroll-touch no-scrollbar text-zinc-400 select-none">
+        <div className="h-12 md:h-10 border-b border-zinc-800/80 bg-zinc-950/70 px-3 flex items-center gap-1 shrink-0 overflow-x-auto scroll-touch no-scrollbar text-zinc-400 select-none">
           <button
             type="button"
             onClick={() => insertFormatting('**', '**', 'bold text')}
-            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
+            className="p-2.5 md:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Bold (**text**)"
           >
             <Bold className="w-3.5 h-3.5" />
@@ -393,7 +393,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('*', '*', 'italic text')}
-            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
+            className="p-2.5 md:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Italic (*text*)"
           >
             <Italic className="w-3.5 h-3.5" />
@@ -402,7 +402,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('[[', ']]', 'Note Title')}
-            className="flex items-center gap-1 px-2.5 py-2.5 sm:py-1 rounded text-xs shrink-0 text-violet-400 hover:bg-violet-950/50 hover:text-violet-300 font-medium"
+            className="flex items-center gap-1 px-2.5 py-2.5 md:py-1 rounded text-xs shrink-0 text-violet-400 hover:bg-violet-950/50 hover:text-violet-300 font-medium"
             title="Insert [[Wikilink]]"
           >
             <span>[[</span>
@@ -412,7 +412,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('![[', ']]', 'attachment.png')}
-            className="flex items-center gap-1 px-2.5 py-2.5 sm:py-1 rounded text-xs shrink-0 text-cyan-400 hover:bg-cyan-950/50 hover:text-cyan-300 font-medium"
+            className="flex items-center gap-1 px-2.5 py-2.5 md:py-1 rounded text-xs shrink-0 text-cyan-400 hover:bg-cyan-950/50 hover:text-cyan-300 font-medium"
             title="Insert ![[Embed]]"
           >
             <span>![[</span>
@@ -423,7 +423,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('## ', '', 'Heading')}
-            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
+            className="p-2.5 md:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Heading (## )"
           >
             <Hash className="w-3.5 h-3.5" />
@@ -431,7 +431,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('- [ ] ', '', 'Task item')}
-            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
+            className="p-2.5 md:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Task Checkbox (- [ ])"
           >
             <CheckSquare className="w-3.5 h-3.5" />
@@ -439,7 +439,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('- ', '', 'List item')}
-            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
+            className="p-2.5 md:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Bullet List (- )"
           >
             <List className="w-3.5 h-3.5" />
@@ -447,7 +447,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('```\n', '\n```', 'code block')}
-            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
+            className="p-2.5 md:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Code Block (```)"
           >
             <Code className="w-3.5 h-3.5" />
@@ -455,7 +455,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('\n| Header 1 | Header 2 |\n| :--- | :--- |\n| Cell 1 | Cell 2 |\n')}
-            className="p-2.5 sm:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
+            className="p-2.5 md:p-1.5 rounded hover:bg-zinc-800 hover:text-zinc-200 shrink-0"
             title="Insert Markdown Table"
           >
             <Table className="w-3.5 h-3.5" />
@@ -463,7 +463,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => insertFormatting('> [!NOTE]\n> ', '', 'This is a note callout')}
-            className="px-2.5 py-2.5 sm:py-1 rounded text-xs shrink-0 text-zinc-300 hover:bg-zinc-800"
+            className="px-2.5 py-2.5 md:py-1 rounded text-xs shrink-0 text-zinc-300 hover:bg-zinc-800"
             title="Callout Box"
           >
             Callout
@@ -480,11 +480,11 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1 px-2.5 py-2.5 sm:py-1 rounded text-xs shrink-0 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+            className="flex items-center gap-1 px-2.5 py-2.5 md:py-1 rounded text-xs shrink-0 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
             title="Upload Attachment (Image, PDF)"
           >
             <Paperclip className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Attach</span>
+            <span className="hidden md:inline">Attach</span>
           </button>
         </div>
       )}
@@ -504,12 +504,13 @@ export const EditorView: React.FC<EditorViewProps> = ({
             <textarea
               ref={textareaRef}
               id="markdown-editor-textarea"
+              data-selectable-content
               value={body}
               onChange={handleBodyChange}
               onKeyDown={handleKeyDown}
               onScroll={handleEditorScroll}
               placeholder="Write your research notes in markdown with [[wikilinks]], ![[embeds]], and YAML frontmatter..."
-              className="flex-1 w-full p-4 sm:p-6 bg-transparent text-zinc-200 font-mono text-sm leading-relaxed outline-none resize-none selection:bg-violet-900/60 selection:text-white"
+              className="flex-1 w-full p-4 md:p-6 bg-transparent text-zinc-200 font-mono text-sm leading-relaxed outline-none resize-none selection:bg-violet-900/60 selection:text-white"
               spellCheck="false"
             />
 

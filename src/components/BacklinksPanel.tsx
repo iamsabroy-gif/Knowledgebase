@@ -10,6 +10,10 @@ import {
 interface BacklinksPanelProps {
   currentNote: Note;
   allNotes: Note[];
+  linkGraph?: {
+    backlinksByPath: Record<string, LinkReference[]>;
+    outgoingByPath: Record<string, LinkReference[]>;
+  };
   onNavigateToNote: (path: string, heading?: string) => void;
   onRequestCreateNote: (title: string) => void;
   onConvertUnlinkedMention?: (sourcePath: string, matchedText: string, noteTitle: string) => void;
@@ -21,6 +25,7 @@ interface BacklinksPanelProps {
 export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({
   currentNote,
   allNotes,
+  linkGraph: linkGraphProp,
   onNavigateToNote,
   onRequestCreateNote,
   onConvertUnlinkedMention,
@@ -30,8 +35,9 @@ export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'backlinks' | 'outgoing' | 'graph' | 'outline'>('backlinks');
   const [filterQuery, setFilterQuery] = useState('');
 
-  // Compute graph
-  const linkGraph = React.useMemo(() => computeLinkGraph(allNotes), [allNotes]);
+  // Use hoisted linkGraph if provided, or compute locally
+  const localLinkGraph = React.useMemo(() => computeLinkGraph(allNotes), [allNotes]);
+  const linkGraph = linkGraphProp || localLinkGraph;
   const backlinks = linkGraph.backlinksByPath[currentNote.path] || [];
   const outgoing = linkGraph.outgoingByPath[currentNote.path] || [];
 

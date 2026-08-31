@@ -1,21 +1,37 @@
 import { Note, Attachment, GitHubConfig, SyncStatusSummary, ConflictItem } from '../types';
+import { auth } from '../lib/firebase';
+
+/**
+ * Wrapper around fetch() that attaches the current user's Firebase ID token
+ * as an Authorization: Bearer header on every request.
+ * Throws a user-friendly error if the server responds with 401.
+ */
+async function authedFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const user = auth.currentUser;
+  const token = user ? await user.getIdToken() : null;
+  const headers = new Headers(init.headers);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const res = await fetch(input, { ...init, headers });
+  if (res.status === 401) throw new Error('Session expired. Please sign in again.');
+  return res;
+}
 
 export const api = {
   // Notes
   async getNotes(): Promise<Note[]> {
-    const res = await fetch('/api/notes');
+    const res = await authedFetch('/api/notes');
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
   async getNote(path: string): Promise<Note> {
-    const res = await fetch(`/api/notes/get?path=${encodeURIComponent(path)}`);
+    const res = await authedFetch(`/api/notes/get?path=${encodeURIComponent(path)}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
   async saveNote(note: Note): Promise<Note> {
-    const res = await fetch('/api/notes', {
+    const res = await authedFetch('/api/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(note),
@@ -25,14 +41,14 @@ export const api = {
   },
 
   async deleteNote(path: string): Promise<void> {
-    const res = await fetch(`/api/notes?path=${encodeURIComponent(path)}`, {
+    const res = await authedFetch(`/api/notes?path=${encodeURIComponent(path)}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error(await res.text());
   },
 
   async renameNote(oldPath: string, newPath: string): Promise<Note> {
-    const res = await fetch('/api/notes/rename', {
+    const res = await authedFetch('/api/notes/rename', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldPath, newPath }),
@@ -42,20 +58,20 @@ export const api = {
   },
 
   async reseedVault(): Promise<{ success: boolean; notes: Note[] }> {
-    const res = await fetch('/api/vault/reseed', { method: 'POST' });
+    const res = await authedFetch('/api/vault/reseed', { method: 'POST' });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
   // Attachments
   async getAttachments(): Promise<Attachment[]> {
-    const res = await fetch('/api/attachments');
+    const res = await authedFetch('/api/attachments');
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
   async uploadAttachment(filename: string, base64Data: string, mimeType: string): Promise<Attachment> {
-    const res = await fetch('/api/attachments/upload', {
+    const res = await authedFetch('/api/attachments/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename, base64Data, mimeType }),
@@ -65,7 +81,7 @@ export const api = {
   },
 
   async deleteAttachment(path: string): Promise<void> {
-    const res = await fetch(`/api/attachments?path=${encodeURIComponent(path)}`, {
+    const res = await authedFetch(`/api/attachments?path=${encodeURIComponent(path)}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error(await res.text());
@@ -73,13 +89,13 @@ export const api = {
 
   // GitHub Config & Sync
   async getGitHubConfig(): Promise<GitHubConfig> {
-    const res = await fetch('/api/github/config');
+    const res = await authedFetch('/api/github/config');
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
   async saveGitHubConfig(config: Partial<GitHubConfig> & { token?: string }): Promise<GitHubConfig> {
-    const res = await fetch('/api/github/config', {
+    const res = await authedFetch('/api/github/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -89,7 +105,7 @@ export const api = {
   },
 
   async testGitHub(config: { owner: string; repo: string; branch?: string; token?: string }) {
-    const res = await fetch('/api/github/test', {
+    const res = await authedFetch('/api/github/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -100,20 +116,20 @@ export const api = {
   },
 
   async getSyncSummary(): Promise<SyncStatusSummary> {
-    const res = await fetch('/api/github/summary');
+    const res = await authedFetch('/api/github/summary');
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
   async pullGitHub(): Promise<any> {
-    const res = await fetch('/api/github/pull', { method: 'POST' });
+    const res = await authedFetch('/api/github/pull', { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Pull failed');
     return data;
   },
 
   async pushGitHub(commitMessage?: string): Promise<any> {
-    const res = await fetch('/api/github/push', {
+    const res = await authedFetch('/api/github/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commitMessage }),
@@ -124,13 +140,13 @@ export const api = {
   },
 
   async getConflicts(): Promise<ConflictItem[]> {
-    const res = await fetch('/api/github/conflicts');
+    const res = await authedFetch('/api/github/conflicts');
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
   async resolveConflict(path: string, resolution: 'keep_local' | 'take_remote' | 'manual', mergedContent?: string): Promise<any> {
-    const res = await fetch('/api/github/conflicts/resolve', {
+    const res = await authedFetch('/api/github/conflicts/resolve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path, resolution, mergedContent }),
@@ -148,7 +164,7 @@ export const api = {
     isAdmin?: boolean;
     isAuthenticated?: boolean;
   }): Promise<string> {
-    const res = await fetch('/api/chat', {
+    const res = await authedFetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -162,7 +178,7 @@ export const api = {
 
   // Admin Management Endpoints
   async verifyAdminPasscode(passcode: string): Promise<{ valid: boolean; message?: string }> {
-    const res = await fetch('/api/admin/verify-passcode', {
+    const res = await authedFetch('/api/admin/verify-passcode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ passcode }),
@@ -179,6 +195,7 @@ export const api = {
     model: string;
     hasApiKey: boolean;
   }> {
+    // Public endpoint — no auth token needed.
     const res = await fetch('/api/admin/gemini-status');
     if (!res.ok) throw new Error('Failed to fetch Gemini status');
     return res.json();
@@ -191,7 +208,7 @@ export const api = {
     passcode?: string;
     newPasscode?: string;
   }): Promise<{ success: boolean; enabled: boolean; allowedAccess: string; disabledMessage: string }> {
-    const res = await fetch('/api/admin/gemini-status', {
+    const res = await authedFetch('/api/admin/gemini-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -202,7 +219,7 @@ export const api = {
   },
 
   async testGeminiApi(): Promise<{ success: boolean; latencyMs: number; model: string; message: string }> {
-    const res = await fetch('/api/admin/test-connection', {
+    const res = await authedFetch('/api/admin/test-connection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
