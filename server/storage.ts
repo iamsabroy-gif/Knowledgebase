@@ -32,11 +32,10 @@ export class VaultStorage {
     repo: '',
     branch: 'main',
     subfolder: '',
-    has_token: false,
+    has_token: !!process.env.GITHUB_TOKEN,
     last_synced_at: null,
     last_commit_sha: null,
   };
-  private token: string = '';
 
   constructor() {
     ensureDirs();
@@ -57,42 +56,33 @@ export class VaultStorage {
           repo: data.repo || '',
           branch: data.branch || 'main',
           subfolder: data.subfolder || '',
-          has_token: !!data.token,
-          token_preview: data.token ? `${data.token.slice(0, 10)}...${data.token.slice(-4)}` : undefined,
+          has_token: !!process.env.GITHUB_TOKEN,
           last_synced_at: data.last_synced_at || null,
           last_commit_sha: data.last_commit_sha || null,
         };
-        this.token = data.token || '';
+        if (data.token) {
+          console.warn(
+            '[storage] Ignoring legacy plaintext token in data/github_config.json. ' +
+            'Delete the file and rotate that PAT.'
+          );
+        }
       }
     } catch (e) {
       console.error('Failed to load GitHub config:', e);
     }
   }
 
-  public saveConfig(newConfig: Partial<GitHubConfig> & { token?: string }) {
+  public saveConfig(newConfig: Partial<GitHubConfig>) {
     if (newConfig.owner !== undefined) this.config.owner = newConfig.owner.trim();
     if (newConfig.repo !== undefined) this.config.repo = newConfig.repo.trim();
     if (newConfig.branch !== undefined) this.config.branch = newConfig.branch.trim() || 'main';
     if (newConfig.subfolder !== undefined) this.config.subfolder = newConfig.subfolder.trim();
-    if (newConfig.token !== undefined) {
-      if (newConfig.token) {
-        this.token = newConfig.token.trim();
-        this.config.has_token = true;
-        this.config.token_preview = `${this.token.slice(0, 10)}...${this.token.slice(-4)}`;
-      } else {
-        this.token = '';
-        this.config.has_token = false;
-        this.config.token_preview = undefined;
-      }
-    }
+    this.config.has_token = !!process.env.GITHUB_TOKEN;
     if (newConfig.last_synced_at !== undefined) this.config.last_synced_at = newConfig.last_synced_at;
     if (newConfig.last_commit_sha !== undefined) this.config.last_commit_sha = newConfig.last_commit_sha;
 
-    const dataToSave = {
-      ...this.config,
-      token: this.token,
-    };
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(dataToSave, null, 2), 'utf-8');
+    const { token: _drop, ...safeConfig } = this.config as any;
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(safeConfig, null, 2), 'utf-8');
   }
 
   public getConfig(): GitHubConfig {
@@ -100,7 +90,13 @@ export class VaultStorage {
   }
 
   public getToken(): string {
-    return this.token;
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) {
+      throw new Error(
+        'GITHUB_TOKEN is not set. Add it to .env and restart the server.'
+      );
+    }
+    return token;
   }
 
   private loadNotes() {
@@ -311,6 +307,11 @@ export class VaultStorage {
 
   public clearDeletedPaths() {
     this.deletedPaths.clear();
+    this.saveDeletedTracker();
+  }
+
+  public clearDeletedPath(pathStr: string) {
+    this.deletedPaths.delete(pathStr);
     this.saveDeletedTracker();
   }
 

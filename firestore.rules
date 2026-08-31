@@ -58,5 +58,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAuthenticated();
     }
+
+    // GitHub App User-to-Server Token Store (Server Only)
+    // Firebase Admin SDK bypasses security rules; client access is completely forbidden.
+    match /github_connections/{uid} {
+      allow read, write: if false;
+    }
   }
 }
+

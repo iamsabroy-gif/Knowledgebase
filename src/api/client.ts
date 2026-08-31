@@ -87,14 +87,56 @@ export const api = {
     if (!res.ok) throw new Error(await res.text());
   },
 
-  // GitHub Config & Sync
+  // GitHub App & Sync
+  async getGitHubConnection(): Promise<{ connected: boolean; githubLogin?: string; needsReauth?: boolean }> {
+    const res = await authedFetch('/api/github/connection');
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async getGitHubConnectUrl(): Promise<{ url: string }> {
+    const res = await authedFetch('/api/github/connect');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to get GitHub connect URL');
+    return data;
+  },
+
+  async disconnectGitHub(): Promise<void> {
+    const res = await authedFetch('/api/github/disconnect', { method: 'POST' });
+    if (!res.ok) throw new Error(await res.text());
+  },
+
+  async getGitHubRepos(): Promise<Array<{ id: number; name: string; full_name: string; owner: string; default_branch: string; private: boolean }>> {
+    const res = await authedFetch('/api/github/repos');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch repositories');
+    return data;
+  },
+
+  async saveVaultGitHubConfig(params: {
+    vaultId: string;
+    owner: string;
+    repo: string;
+    branch: string;
+    subfolder: string;
+  }): Promise<any> {
+    const res = await authedFetch('/api/github/vault-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save vault GitHub config');
+    return data;
+  },
+
   async getGitHubConfig(): Promise<GitHubConfig> {
     const res = await authedFetch('/api/github/config');
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
-  async saveGitHubConfig(config: Partial<GitHubConfig> & { token?: string }): Promise<GitHubConfig> {
+  async saveGitHubConfig(config: Partial<GitHubConfig>): Promise<GitHubConfig> {
     const res = await authedFetch('/api/github/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -104,7 +146,7 @@ export const api = {
     return res.json();
   },
 
-  async testGitHub(config: { owner: string; repo: string; branch?: string; token?: string }) {
+  async testGitHub(config: { owner: string; repo: string; branch?: string }) {
     const res = await authedFetch('/api/github/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -115,41 +157,53 @@ export const api = {
     return data;
   },
 
-  async getSyncSummary(): Promise<SyncStatusSummary> {
-    const res = await authedFetch('/api/github/summary');
+  async getSyncSummary(vaultId: string = 'local'): Promise<SyncStatusSummary> {
+    const res = await authedFetch(`/api/github/summary?vaultId=${encodeURIComponent(vaultId)}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
-  async pullGitHub(): Promise<any> {
-    const res = await authedFetch('/api/github/pull', { method: 'POST' });
+  async pullGitHub(options: { vaultId?: string } = {}): Promise<any> {
+    const res = await authedFetch('/api/github/pull', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vaultId: options.vaultId || 'local' }),
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Pull failed');
     return data;
   },
 
-  async pushGitHub(commitMessage?: string): Promise<any> {
+  async pushGitHub(options: { vaultId?: string; commitMessage?: string } = {}): Promise<any> {
     const res = await authedFetch('/api/github/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commitMessage }),
+      body: JSON.stringify({
+        vaultId: options.vaultId || 'local',
+        commitMessage: options.commitMessage,
+      }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Push failed');
     return data;
   },
 
-  async getConflicts(): Promise<ConflictItem[]> {
-    const res = await authedFetch('/api/github/conflicts');
+  async getConflicts(vaultId: string = 'local'): Promise<ConflictItem[]> {
+    const res = await authedFetch(`/api/github/conflicts?vaultId=${encodeURIComponent(vaultId)}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
-  async resolveConflict(path: string, resolution: 'keep_local' | 'take_remote' | 'manual', mergedContent?: string): Promise<any> {
+  async resolveConflict(
+    path: string,
+    resolution: 'keep_local' | 'take_remote' | 'manual',
+    mergedContent?: string,
+    vaultId: string = 'local'
+  ): Promise<any> {
     const res = await authedFetch('/api/github/conflicts/resolve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, resolution, mergedContent }),
+      body: JSON.stringify({ path, resolution, mergedContent, vaultId }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Conflict resolution failed');

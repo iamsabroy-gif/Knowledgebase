@@ -11,12 +11,14 @@ interface ConflictModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConflictResolved: () => void;
+  vaultId?: string;
 }
 
 export const ConflictModal: React.FC<ConflictModalProps> = ({
   isOpen,
   onClose,
   onConflictResolved,
+  vaultId = 'local',
 }) => {
   const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -26,7 +28,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
 
   const loadConflicts = async () => {
     try {
-      const list = await api.getConflicts();
+      const list = await api.getConflicts(vaultId);
       setConflicts(list);
       if (list.length > 0 && selectedIndex >= list.length) {
         setSelectedIndex(0);
@@ -41,7 +43,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
       loadConflicts();
       setIsManualMode(false);
     }
-  }, [isOpen]);
+  }, [isOpen, vaultId]);
 
   const activeConflict = conflicts[selectedIndex] || null;
 
@@ -60,7 +62,8 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
       await api.resolveConflict(
         activeConflict.path,
         resolution,
-        resolution === 'manual' ? manualMergeText : undefined
+        resolution === 'manual' ? manualMergeText : undefined,
+        vaultId
       );
 
       const remaining = conflicts.filter(c => c.path !== activeConflict.path);

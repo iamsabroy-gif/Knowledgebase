@@ -1,19 +1,39 @@
-import { VaultStorage } from './storage';
 import { Note, Attachment, ConflictItem, SyncStatusSummary } from '../src/types';
 import { parseObsidianNote, serializeObsidianNote } from '../src/utils/markdown-parser';
+import { NoteStore } from './notestore';
+
+export interface VaultGitHubConfig {
+  owner: string;
+  repo: string;
+  branch: string;
+  subfolder: string;
+  lastSyncedAt?: string | null;
+  lastCommitSha?: string | null;
+  connectedByUid?: string;
+}
 
 interface GitHubApiRateLimit {
   remaining: number | null;
   reset: number | null;
 }
 
-export class GitHubSyncService {
-  private storage: VaultStorage;
-  private lastRateLimit: GitHubApiRateLimit = { remaining: null, reset: null };
-
-  constructor(storage: VaultStorage) {
-    this.storage = storage;
+async function mapConcurrent<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results: R[] = new Array(items.length);
+  let index = 0;
+  async function worker() {
+    while (index < items.length) {
+      const current = index++;
+      results[current] = await fn(items[current]);
+    }
   }
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+export class GitHubSyncService {
+  private lastRateLimit: GitHubApiRateLimit = { remaining: null, reset: null };
 
   private getHeaders(token: string) {
     return {
@@ -43,7 +63,7 @@ export class GitHubSyncService {
    * Test repository access, branch existence, and token validity
    */
   public async testConnection(token: string, owner: string, repo: string, branch: string) {
-    if (!token) throw new Error('Personal Access Token (PAT) is required');
+    if (!token) throw new Error('GitHub token or authentication is required');
     if (!owner || !repo) throw new Error('Repository owner and name are required');
 
     const cleanBranch = branch.trim() || 'main';
@@ -56,7 +76,7 @@ export class GitHubSyncService {
     this.updateRateLimitFromHeaders(res.headers);
 
     if (res.status === 401) {
-      throw new Error('Authentication failed (401). Your GitHub Personal Access Token may be invalid or expired.');
+      throw new Error('Authentication failed (401). Your GitHub authorization may be invalid or expired.');
     }
     if (res.status === 404) {
       throw new Error(`Repository "${owner}/${repo}" or branch "${cleanBranch}" not found (404). Check permissions or branch name.`);
@@ -64,9 +84,9 @@ export class GitHubSyncService {
     if (res.status === 403) {
       const body = await res.json().catch(() => ({}));
       if (body.message && body.message.includes('rate limit')) {
-        throw new Error('GitHub API rate limit exceeded. Please wait or check your PAT permissions.');
+        throw new Error('GitHub API rate limit exceeded. Please wait or check token limits.');
       }
-      throw new Error(`Access forbidden (403): ${body.message || 'Check PAT scope (Contents: Read/Write)'}`);
+      throw new Error(`Access forbidden (403): ${body.message || 'Check repository permissions (Contents: Read/Write)'}`);
     }
     if (!res.ok) {
       const err = await res.text().catch(() => '');
@@ -83,19 +103,16 @@ export class GitHubSyncService {
   }
 
   /**
-   * Pull repository changes from GitHub
+   * Pull repository changes from GitHub into a NoteStore
    */
-  public async pull() {
-    const config = this.storage.getConfig();
-    const token = this.storage.getToken();
-
+  public async pull(token: string, config: VaultGitHubConfig, noteStore: NoteStore) {
     if (!token || !config.owner || !config.repo) {
-      throw new Error('GitHub configuration or PAT is incomplete. Please configure GitHub settings first.');
+      throw new Error('GitHub configuration is incomplete. Please configure repository settings first.');
     }
 
     const { owner, repo, branch, subfolder } = config;
     const cleanBranch = branch.trim() || 'main';
-    const cleanSubfolder = subfolder.trim().replace(/^\/+|\/+$/g, '');
+    const cleanSubfolder = (subfolder || '').trim().replace(/^\/+|\/+$/g, '');
 
     // 1. Get branch ref -> commit sha
     const refUrl = `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${cleanBranch}`;
@@ -103,7 +120,7 @@ export class GitHubSyncService {
     this.updateRateLimitFromHeaders(refRes.headers);
 
     if (refRes.status === 401) {
-      throw new Error('GitHub token expired or revoked (401). Please update your PAT in settings.');
+      throw new Error('GitHub authorization expired or was revoked (401). Please reconnect GitHub.');
     }
     if (!refRes.ok) {
       const text = await refRes.text();
@@ -161,93 +178,119 @@ export class GitHubSyncService {
     let conflictsCount = 0;
 
     // Process Notes (.md files)
-    const localNotes = this.storage.getNotes();
+    const localNotes = await noteStore.getNotes();
     const localNotesMap = new Map<string, Note>();
     for (const n of localNotes) {
       localNotesMap.set(n.path, n);
     }
 
+    // Determine files that actually need downloading
+    const filesToDownload: Array<{ relPath: string; remoteFile: { path: string; vaultRelativePath: string; sha: string }; isAttachment: boolean }> = [];
+
+    const localAttachments = await noteStore.getAttachments();
+    const localAttachmentsMap = new Map<string, Attachment>();
+    for (const a of localAttachments) {
+      localAttachmentsMap.set(a.path, a);
+    }
+
     for (const [relPath, remoteFile] of remoteFilesMap.entries()) {
       if (relPath.endsWith('.md')) {
         const localNote = localNotesMap.get(relPath);
+        if (!localNote || localNote.git_sha !== remoteFile.sha) {
+          filesToDownload.push({ relPath, remoteFile, isAttachment: false });
+        }
+      } else {
+        const isAttachment = relPath.startsWith('attachments/') || /\.(png|jpe?g|gif|svg|pdf|webp)$/i.test(relPath);
+        if (isAttachment) {
+          const localAtt = localAttachmentsMap.get(relPath);
+          if (!localAtt || localAtt.git_sha !== remoteFile.sha) {
+            filesToDownload.push({ relPath, remoteFile, isAttachment: true });
+          }
+        }
+      }
+    }
 
-        // Fetch remote blob content
-        const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${remoteFile.sha}`;
-        
+    // Concurrent blob downloads (concurrency = 6)
+    const downloadedBlobs = await mapConcurrent(filesToDownload, 6, async (item) => {
+      const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.remoteFile.sha}`;
+      const blobRes = await fetch(blobUrl, { headers: this.getHeaders(token) });
+      this.updateRateLimitFromHeaders(blobRes.headers);
+      if (!blobRes.ok) {
+        throw new Error(`Failed to fetch blob for "${item.relPath}" (${blobRes.status})`);
+      }
+      const blobData = await blobRes.json();
+      return {
+        ...item,
+        base64Content: blobData.content,
+      };
+    });
+
+    // Apply downloaded files into the NoteStore
+    for (const item of downloadedBlobs) {
+      if (!item.isAttachment) {
+        const rawContent = Buffer.from(item.base64Content, 'base64').toString('utf-8');
+        const localNote = localNotesMap.get(item.relPath);
+
         if (localNote) {
-          // Check if remote changed
-          if (localNote.git_sha !== remoteFile.sha) {
-            // Fetch blob content
-            const blobRes = await fetch(blobUrl, { headers: this.getHeaders(token) });
-            this.updateRateLimitFromHeaders(blobRes.headers);
-            const blobData = await blobRes.json();
-            const rawContent = Buffer.from(blobData.content, 'base64').toString('utf-8');
-
-            if (localNote.sync_status === 'local_changes') {
-              // Conflict! Both local and remote changed
-              const conflictItem: ConflictItem = {
-                path: relPath,
-                type: 'note',
-                local_content: serializeObsidianNote(localNote),
-                remote_content: rawContent,
-                local_frontmatter: localNote.frontmatter,
-                remote_frontmatter: parseObsidianNote(rawContent, relPath).frontmatter,
-                local_sha: localNote.git_sha,
-                remote_sha: remoteFile.sha,
-                base_sha: localNote.git_sha,
-              };
-              this.storage.setConflict(conflictItem);
-              localNote.sync_status = 'conflict';
-              this.storage.updateNoteDirect(localNote);
-              conflictsCount++;
-            } else {
-              // Safe to update
-              const parsed = parseObsidianNote(rawContent, relPath, remoteFile.sha, 'synced');
-              this.storage.updateNoteDirect(parsed);
-              notesUpdated++;
-            }
+          if (localNote.sync_status === 'local_changes') {
+            // Conflict! Both local and remote changed
+            const conflictItem: ConflictItem = {
+              path: item.relPath,
+              type: 'note',
+              local_content: serializeObsidianNote(localNote),
+              remote_content: rawContent,
+              local_frontmatter: localNote.frontmatter,
+              remote_frontmatter: parseObsidianNote(rawContent, item.relPath).frontmatter,
+              local_sha: localNote.git_sha,
+              remote_sha: item.remoteFile.sha,
+              base_sha: localNote.git_sha,
+            };
+            await noteStore.setConflict(conflictItem);
+            localNote.sync_status = 'conflict';
+            await noteStore.saveNote(localNote);
+            conflictsCount++;
+          } else {
+            // Safe to update
+            const parsed = parseObsidianNote(rawContent, item.relPath, item.remoteFile.sha, 'synced');
+            await noteStore.saveNote(parsed);
+            notesUpdated++;
           }
         } else {
           // New file from remote
-          const blobRes = await fetch(blobUrl, { headers: this.getHeaders(token) });
-          this.updateRateLimitFromHeaders(blobRes.headers);
-          const blobData = await blobRes.json();
-          const rawContent = Buffer.from(blobData.content, 'base64').toString('utf-8');
-          const parsed = parseObsidianNote(rawContent, relPath, remoteFile.sha, 'synced');
-          this.storage.updateNoteDirect(parsed);
+          const parsed = parseObsidianNote(rawContent, item.relPath, item.remoteFile.sha, 'synced');
+          await noteStore.saveNote(parsed);
           notesAdded++;
         }
       } else {
-        // Binary or Attachment (images, pdfs, etc.)
-        const isAttachment = relPath.startsWith('attachments/') || /\.(png|jpe?g|gif|svg|pdf|webp)$/i.test(relPath);
-        if (isAttachment) {
-          const localAtt = this.storage.getAttachment(relPath);
-          if (!localAtt || localAtt.meta.git_sha !== remoteFile.sha) {
-            const blobRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/blobs/${remoteFile.sha}`, { headers: this.getHeaders(token) });
-            this.updateRateLimitFromHeaders(blobRes.headers);
-            const blobData = await blobRes.json();
-            const buffer = Buffer.from(blobData.content, 'base64');
-            const mimeType = getMimeType(relPath);
-            this.storage.saveAttachment(relPath, buffer, mimeType, remoteFile.sha, 'synced');
-            attachmentsUpdated++;
-          }
-        }
+        // Attachment
+        const buffer = Buffer.from(item.base64Content, 'base64');
+        const mimeType = getMimeType(item.relPath);
+        const att: Attachment = {
+          path: item.relPath,
+          name: item.relPath.split('/').pop() || item.relPath,
+          mime_type: mimeType,
+          size: buffer.length,
+          data_base64: item.base64Content,
+          git_sha: item.remoteFile.sha,
+          sync_status: 'synced',
+          updated_at: new Date().toISOString(),
+        };
+        await noteStore.saveAttachment(att);
+        attachmentsUpdated++;
       }
     }
 
     // Check for remote deletions: if local was 'synced' with git_sha but no longer exists on remote
     for (const [pathStr, note] of localNotesMap.entries()) {
       if (note.git_sha && note.sync_status === 'synced' && !remoteFilesMap.has(pathStr)) {
-        this.storage.deleteNote(pathStr);
+        await noteStore.deleteNote(pathStr);
         notesDeleted++;
       }
     }
 
     // Save sync state
-    this.storage.saveConfig({
-      last_synced_at: new Date().toISOString(),
-      last_commit_sha: latestCommitSha,
-    });
+    const nowIso = new Date().toISOString();
+    await noteStore.updateSyncMetadata(nowIso, latestCommitSha);
 
     return {
       success: true,
@@ -264,23 +307,25 @@ export class GitHubSyncService {
   /**
    * Push local changes to GitHub via Git Data API (Blobs -> Tree -> Commit -> Ref)
    */
-  public async push(commitMessage: string = 'Update notes from Obsidian web vault') {
-    const config = this.storage.getConfig();
-    const token = this.storage.getToken();
-
+  public async push(
+    token: string,
+    config: VaultGitHubConfig,
+    noteStore: NoteStore,
+    commitMessage: string = 'Update notes from Obsidian web vault'
+  ) {
     if (!token || !config.owner || !config.repo) {
-      throw new Error('GitHub configuration or PAT is missing.');
+      throw new Error('GitHub configuration is missing.');
     }
 
     // Abort if unresolved conflicts exist
-    const conflicts = this.storage.getConflicts();
+    const conflicts = await noteStore.getConflicts();
     if (conflicts.length > 0) {
       throw new Error(`Cannot push while ${conflicts.length} unresolved conflict(s) exist. Please resolve them first.`);
     }
 
     const { owner, repo, branch, subfolder } = config;
     const cleanBranch = branch.trim() || 'main';
-    const cleanSubfolder = subfolder.trim().replace(/^\/+|\/+$/g, '');
+    const cleanSubfolder = (subfolder || '').trim().replace(/^\/+|\/+$/g, '');
 
     // 1. Get latest remote branch commit SHA & tree SHA
     const refUrl = `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${cleanBranch}`;
@@ -293,13 +338,14 @@ export class GitHubSyncService {
     const commitUrl = `https://api.github.com/repos/${owner}/${repo}/git/commits/${currentCommitSha}`;
     const commitRes = await fetch(commitUrl, { headers: this.getHeaders(token) });
     this.updateRateLimitFromHeaders(commitRes.headers);
+    if (!commitRes.ok) throw new Error('Failed to fetch commit object from GitHub.');
     const commitData = await commitRes.json();
     const baseTreeSha = commitData.tree.sha;
 
     // Collect pending notes & attachments
-    const notes = this.storage.getNotes();
-    const attachments = this.storage.getAttachments();
-    const deletedPaths = this.storage.getDeletedPaths();
+    const notes = await noteStore.getNotes();
+    const attachments = await noteStore.getAttachments();
+    const deletedPaths = await noteStore.getDeletedPaths();
 
     const pendingNotes = notes.filter(n => n.sync_status === 'local_changes');
     const pendingAttachments = attachments.filter(a => a.sync_status === 'local_changes');
@@ -348,17 +394,15 @@ export class GitHubSyncService {
 
     // Create blobs for pending attachments
     for (const att of pendingAttachments) {
-      const attData = this.storage.getAttachment(att.path);
-      if (!attData) continue;
+      if (!att.data_base64) continue;
 
       const fullRepoPath = cleanSubfolder ? `${cleanSubfolder}/${att.path}` : att.path;
-      const base64Content = attData.buffer.toString('base64');
 
       const blobRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/blobs`, {
         method: 'POST',
         headers: this.getHeaders(token),
         body: JSON.stringify({
-          content: base64Content,
+          content: att.data_base64,
           encoding: 'base64',
         }),
       });
@@ -448,26 +492,29 @@ export class GitHubSyncService {
 
     // Update local database states
     for (const [notePath, newSha] of updatedNoteBlobs.entries()) {
-      const note = this.storage.getNote(notePath);
+      const note = (await noteStore.getNotes()).find(n => n.path === notePath);
       if (note) {
         note.git_sha = newSha;
         note.sync_status = 'synced';
-        this.storage.updateNoteDirect(note);
+        await noteStore.saveNote(note);
       }
     }
 
     for (const [attPath, newSha] of updatedAttachmentBlobs.entries()) {
-      const attData = this.storage.getAttachment(attPath);
-      if (attData) {
-        this.storage.saveAttachment(attPath, attData.buffer, attData.meta.mime_type, newSha, 'synced');
+      const att = (await noteStore.getAttachments()).find(a => a.path === attPath);
+      if (att) {
+        att.git_sha = newSha;
+        att.sync_status = 'synced';
+        await noteStore.saveAttachment(att);
       }
     }
 
-    this.storage.clearDeletedPaths();
-    this.storage.saveConfig({
-      last_synced_at: new Date().toISOString(),
-      last_commit_sha: newCommitSha,
-    });
+    for (const delPath of deletedPaths) {
+      await noteStore.clearDeletedPath(delPath);
+    }
+
+    const nowIso = new Date().toISOString();
+    await noteStore.updateSyncMetadata(nowIso, newCommitSha);
 
     return {
       success: true,
@@ -478,51 +525,60 @@ export class GitHubSyncService {
   }
 
   /**
-   * Resolve a conflicting file
+   * Resolve a conflicting file in NoteStore
    */
-  public resolveConflict(filePath: string, resolution: 'keep_local' | 'take_remote' | 'manual', mergedContent?: string) {
-    const conflicts = this.storage.getConflicts();
+  public async resolveConflict(
+    noteStore: NoteStore,
+    filePath: string,
+    resolution: 'keep_local' | 'take_remote' | 'manual',
+    mergedContent?: string
+  ) {
+    const conflicts = await noteStore.getConflicts();
     const conflict = conflicts.find(c => c.path === filePath);
     if (!conflict) throw new Error(`No active conflict found for ${filePath}`);
 
-    const existingNote = this.storage.getNote(filePath);
+    const existingNote = (await noteStore.getNotes()).find(n => n.path === filePath);
 
     if (resolution === 'keep_local') {
       if (existingNote) {
         existingNote.sync_status = 'local_changes';
-        this.storage.updateNoteDirect(existingNote);
+        await noteStore.saveNote(existingNote);
       }
     } else if (resolution === 'take_remote') {
       const parsed = parseObsidianNote(conflict.remote_content, filePath, conflict.remote_sha, 'synced');
-      this.storage.updateNoteDirect(parsed);
+      await noteStore.saveNote(parsed);
     } else if (resolution === 'manual') {
       if (!mergedContent) throw new Error('Merged content must be provided for manual resolution.');
       const parsed = parseObsidianNote(mergedContent, filePath, conflict.remote_sha, 'local_changes');
-      this.storage.updateNoteDirect(parsed);
+      await noteStore.saveNote(parsed);
     }
 
-    this.storage.removeConflict(filePath);
+    await noteStore.deleteConflict(filePath);
 
     return { success: true, path: filePath, resolution };
   }
 
-  public getSyncSummary(): SyncStatusSummary {
-    const config = this.storage.getConfig();
-    const notes = this.storage.getNotes();
-    const attachments = this.storage.getAttachments();
-    const deleted = this.storage.getDeletedPaths();
-    const conflicts = this.storage.getConflicts();
+  public async getSyncSummary(
+    config: VaultGitHubConfig | null,
+    noteStore: NoteStore
+  ): Promise<SyncStatusSummary> {
+    const notes = await noteStore.getNotes();
+    const attachments = await noteStore.getAttachments();
+    const deleted = await noteStore.getDeletedPaths();
+    const conflicts = await noteStore.getConflicts();
 
     const pendingNotes = notes.filter(n => n.sync_status === 'local_changes').length;
     const pendingAtts = attachments.filter(a => a.sync_status === 'local_changes').length;
     const totalPending = pendingNotes + pendingAtts + deleted.length;
 
+    const isConfigured = !!config && !!config.owner && !!config.repo;
+
     return {
-      configured: config.has_token && !!config.owner && !!config.repo,
-      repo_name: (config.owner && config.repo) ? `${config.owner}/${config.repo}` : undefined,
-      branch: config.branch,
-      last_synced_at: config.last_synced_at,
-      last_commit_sha: config.last_commit_sha,
+      configured: isConfigured,
+      repo_name: isConfigured ? `${config!.owner}/${config!.repo}` : undefined,
+      branch: config?.branch,
+      last_synced_at: config?.lastSyncedAt || null,
+      last_commit_sha: config?.lastCommitSha || null,
       pending_notes_count: pendingNotes,
       pending_attachments_count: pendingAtts,
       total_pending_count: totalPending,

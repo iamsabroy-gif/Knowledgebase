@@ -36,13 +36,37 @@ export interface Attachment {
   updated_at: string;
 }
 
+export interface VaultGitHubConfig {
+  owner: string;
+  repo: string;
+  branch: string;
+  subfolder: string;
+  lastSyncedAt?: string | null;
+  lastCommitSha?: string | null;
+  connectedByUid?: string;
+}
+
+export interface GitHubConnectionStatus {
+  connected: boolean;
+  githubLogin?: string;
+  needsReauth?: boolean;
+}
+
+export interface GitHubRepoItem {
+  id: number;
+  name: string;
+  full_name: string;
+  owner: string;
+  default_branch: string;
+  private: boolean;
+}
+
 export interface GitHubConfig {
   owner: string;
   repo: string;
   branch: string;
   subfolder: string; // e.g. "" or "vault"
   has_token: boolean;
-  token_preview?: string; // e.g. "github_pat_...ABCD"
   last_synced_at: string | null;
   last_commit_sha: string | null;
 }
@@ -137,6 +161,7 @@ export interface SharedVaultInfo {
   createdAt: string;
   updatedAt: string;
   noteCount: number;
+  github?: VaultGitHubConfig | null;
 }
 
 export type GeminiAccessScope = 'all' | 'authenticated_only' | 'admin_only';

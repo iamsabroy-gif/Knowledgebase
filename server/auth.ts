@@ -1,5 +1,6 @@
 import { initializeApp, cert, getApps, applicationDefault } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 import type { Request, Response, NextFunction } from 'express';
 
 // Initialise the Admin SDK exactly once.
@@ -13,6 +14,9 @@ if (!getApps().length) {
     projectId: process.env.FIREBASE_PROJECT_ID,
   });
 }
+
+export const adminDb = getFirestore();
+export { getFirestore };
 
 export interface AuthedRequest extends Request {
   uid?: string;

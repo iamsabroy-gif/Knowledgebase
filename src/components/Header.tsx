@@ -165,68 +165,64 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Desktop action cluster: Sync status, Share, Graph, Gemini, Admin, Settings */}
         <div className="hidden md:flex items-center gap-2">
-        {/* Sync Status Badge (when in local vault) */}
-        {isLocalVault && (
-          <>
-            {isSyncing ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-950/60 border border-violet-800/50 text-violet-300 text-xs font-medium">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-violet-400" />
-                <span className="hidden sm:inline">Syncing...</span>
-              </div>
-            ) : conflictCount > 0 ? (
-              <button
-                type="button"
-                id="btn-conflicts-alert"
-                onClick={onOpenConflictModal}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-950/80 border border-rose-700 text-rose-300 text-xs font-medium hover:bg-rose-900 transition-colors animate-pulse"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                <span>{conflictCount} Conflict{conflictCount > 1 ? 's' : ''}</span>
-              </button>
-            ) : pendingCount > 0 ? (
-              <button
-                type="button"
-                id="btn-push-changes"
-                onClick={onOpenCommitModal}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-950/70 border border-amber-800/60 text-amber-300 text-xs font-medium hover:bg-amber-900 transition-colors"
-                title="Push local commits to GitHub"
-              >
-                <UploadCloud className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">{pendingCount} pending</span>
-              </button>
-            ) : isConfigured ? (
-              <div
-                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/50 border border-emerald-800/40 text-emerald-400 text-xs font-medium"
-                title={`Last synced at ${formatLastSync(syncSummary?.last_synced_at)}`}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden sm:inline">Synced</span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                id="btn-connect-github-pill"
-                onClick={onOpenSettings}
-                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs transition-colors"
-              >
-                <Github className="w-3.5 h-3.5" />
-                <span>GitHub</span>
-              </button>
-            )}
+        {/* Sync Status Badge & Quick Pull */}
+        {isSyncing ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-950/60 border border-violet-800/50 text-violet-300 text-xs font-medium">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-violet-400" />
+            <span className="hidden sm:inline">Syncing...</span>
+          </div>
+        ) : conflictCount > 0 ? (
+          <button
+            type="button"
+            id="btn-conflicts-alert"
+            onClick={onOpenConflictModal}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-950/80 border border-rose-700 text-rose-300 text-xs font-medium hover:bg-rose-900 transition-colors animate-pulse"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+            <span>{conflictCount} Conflict{conflictCount > 1 ? 's' : ''}</span>
+          </button>
+        ) : pendingCount > 0 ? (
+          <button
+            type="button"
+            id="btn-push-changes"
+            onClick={onOpenCommitModal}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-950/70 border border-amber-800/60 text-amber-300 text-xs font-medium hover:bg-amber-900 transition-colors"
+            title="Push local commits to GitHub"
+          >
+            <UploadCloud className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">{pendingCount} pending</span>
+          </button>
+        ) : isConfigured ? (
+          <div
+            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/50 border border-emerald-800/40 text-emerald-400 text-xs font-medium"
+            title={`Last synced at ${formatLastSync(syncSummary?.last_synced_at)}`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Synced</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            id="btn-connect-github-pill"
+            onClick={onOpenSettings}
+            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs transition-colors"
+          >
+            <Github className="w-3.5 h-3.5" />
+            <span>GitHub</span>
+          </button>
+        )}
 
-            {isConfigured && (
-              <button
-                type="button"
-                id="btn-quick-pull"
-                onClick={onQuickPull}
-                disabled={isSyncing}
-                className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-colors disabled:opacity-50 hidden sm:flex"
-                title="Pull latest changes from GitHub"
-              >
-                <DownloadCloud className="w-4 h-4" />
-              </button>
-            )}
-          </>
+        {isConfigured && (
+          <button
+            type="button"
+            id="btn-quick-pull"
+            onClick={onQuickPull}
+            disabled={isSyncing}
+            className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-colors disabled:opacity-50 hidden sm:flex"
+            title="Pull latest changes from GitHub"
+          >
+            <DownloadCloud className="w-4 h-4" />
+          </button>
         )}
 
         {/* Share Vault Trigger */}
@@ -309,17 +305,15 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         {/* GitHub Settings */}
-        {isLocalVault && (
-          <button
-            type="button"
-            id="btn-open-settings"
-            onClick={onOpenSettings}
-            className="p-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-colors"
-            title="GitHub Sync Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        )}
+        <button
+          type="button"
+          id="btn-open-settings"
+          onClick={onOpenSettings}
+          className="p-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-colors"
+          title="GitHub Sync Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
         </div>
 
         {/* Mobile-only overflow menu: collects Sync, Share, Graph, Gemini, Admin, Settings */}
@@ -436,19 +430,17 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>{adminAuthState.isAdmin ? 'Admin Control Center' : 'Admin Login'}</span>
               </button>
 
-              {isLocalVault && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    onOpenSettings();
-                  }}
-                  className="w-full text-left p-2 rounded-xl hover:bg-zinc-800/80 text-zinc-200 flex items-center gap-2.5 transition-colors"
-                >
-                  <Settings className="w-4 h-4 text-zinc-400" />
-                  <span>GitHub Sync Settings</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onOpenSettings();
+                }}
+                className="w-full text-left p-2 rounded-xl hover:bg-zinc-800/80 text-zinc-200 flex items-center gap-2.5 transition-colors"
+              >
+                <Settings className="w-4 h-4 text-zinc-400" />
+                <span>GitHub Sync Settings</span>
+              </button>
             </div>
           )}
         </div>

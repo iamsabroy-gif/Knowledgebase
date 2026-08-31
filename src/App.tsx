@@ -220,6 +220,14 @@ export default function App() {
     return () => unsubscribe();
   }, [activeVaultId]);
 
+  // Handle GitHub OAuth return redirect (?github=connected)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('github=connected')) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setIsSettingsOpen(true);
+    }
+  }, []);
+
   // 4. Fetch initial local notes & summary
   const loadLocalVaultData = useCallback(async () => {
     try {
@@ -227,7 +235,7 @@ export default function App() {
       const [fetchedNotes, fetchedAtts, summary] = await Promise.all([
         api.getNotes(),
         api.getAttachments(),
-        api.getSyncSummary(),
+        api.getSyncSummary(activeVaultId),
       ]);
 
       setLocalNotes(fetchedNotes);
@@ -249,11 +257,18 @@ export default function App() {
         setIsLoading(false);
       }
     }
-  }, [isLocalVault, activeNotePath]);
+  }, [isLocalVault, activeNotePath, activeVaultId]);
 
   useEffect(() => {
     loadLocalVaultData();
   }, [loadLocalVaultData]);
+
+  // Refresh sync summary whenever active vault changes
+  useEffect(() => {
+    api.getSyncSummary(activeVaultId)
+      .then(summary => setSyncSummary(summary))
+      .catch(err => console.warn('Could not fetch sync summary for vault:', err));
+  }, [activeVaultId]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -457,20 +472,25 @@ export default function App() {
     });
   };
 
-  // Pull from GitHub (for local vault)
+  // Pull from GitHub (for active vault)
   const handleQuickPull = async () => {
     setIsSyncing(true);
     try {
-      const result = await api.pullGitHub();
-      await loadLocalVaultData();
+      const result = await api.pullGitHub({ vaultId: activeVaultId });
+      if (isLocalVault) {
+        await loadLocalVaultData();
+      } else {
+        const summary = await api.getSyncSummary(activeVaultId);
+        setSyncSummary(summary);
+      }
       if (result.conflicts_count > 0) {
         setIsConflictModalOpen(true);
       }
     } catch (err: any) {
-      if (err.message.includes('401')) {
+      if (err.message.includes('401') || err.message.includes('not configured')) {
         setIsSettingsOpen(true);
       }
-      alert(`GitHub Pull Error: ${err.message}`);
+      alert(`GitHub Pull: ${err.message}`);
     } finally {
       setIsSyncing(false);
     }
@@ -879,9 +899,14 @@ export default function App() {
       <GitHubSettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        onConfigSaved={loadLocalVaultData}
+        onConfigSaved={() => {
+          if (isLocalVault) loadLocalVaultData();
+          api.getSyncSummary(activeVaultId).then(setSyncSummary).catch(() => {});
+        }}
         onPullTriggered={handleQuickPull}
-        onReseedVault={handleReseedVault}
+        onReseedVault={isLocalVault ? handleReseedVault : undefined}
+        activeVaultId={activeVaultId}
+        activeVault={activeCloudVault}
       />
 
       <CommitModal
@@ -890,13 +915,21 @@ export default function App() {
         notes={notes}
         attachments={attachments}
         syncSummary={syncSummary}
-        onPushSuccess={loadLocalVaultData}
+        onPushSuccess={() => {
+          if (isLocalVault) loadLocalVaultData();
+          api.getSyncSummary(activeVaultId).then(setSyncSummary).catch(() => {});
+        }}
+        vaultId={activeVaultId}
       />
 
       <ConflictModal
         isOpen={isConflictModalOpen}
         onClose={() => setIsConflictModalOpen(false)}
-        onConflictResolved={loadLocalVaultData}
+        onConflictResolved={() => {
+          if (isLocalVault) loadLocalVaultData();
+          api.getSyncSummary(activeVaultId).then(setSyncSummary).catch(() => {});
+        }}
+        vaultId={activeVaultId}
       />
 
       <CreateNoteModal

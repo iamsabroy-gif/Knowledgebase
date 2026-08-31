@@ -13,6 +13,7 @@ interface CommitModalProps {
   attachments: Attachment[];
   syncSummary: SyncStatusSummary | null;
   onPushSuccess: (result: any) => void;
+  vaultId?: string;
 }
 
 export const CommitModal: React.FC<CommitModalProps> = ({
@@ -22,6 +23,7 @@ export const CommitModal: React.FC<CommitModalProps> = ({
   attachments,
   syncSummary,
   onPushSuccess,
+  vaultId = 'local',
 }) => {
   const pendingNotes = notes.filter(n => n.sync_status === 'local_changes');
   const pendingAttachments = attachments.filter(a => a.sync_status === 'local_changes');
@@ -59,7 +61,10 @@ export const CommitModal: React.FC<CommitModalProps> = ({
     setPushError(null);
 
     try {
-      const result = await api.pushGitHub(commitMessage.trim() || defaultMsg);
+      const result = await api.pushGitHub({
+        vaultId,
+        commitMessage: commitMessage.trim() || defaultMsg,
+      });
       setPushResult(result);
       onPushSuccess(result);
       setTimeout(() => {
